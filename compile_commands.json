@@ -1,0 +1,70 @@
+[
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang++",
+            "-Iinclude",
+            "-DPONE_DEBUG=1",
+            "-DPONE_INTERNAL=1",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "win32_platform.obj",
+            "win32_platform.cpp"
+        ],
+        "file": "src\\platform\\win32_platform.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang++",
+            "-Iinclude",
+            "-DPONE_DEBUG=1",
+            "-DPONE_INTERNAL=1",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone.obj",
+            "src\\pone.cpp"
+        ],
+        "file": "src\\pone.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang++",
+            "-Iinclude",
+            "-DPONE_DEBUG=1",
+            "-DPONE_INTERNAL=1",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "main.obj",
+            "src\\main.cpp"
+        ],
+        "file": "src\\main.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang++",
+            "-Iinclude",
+            "-DPONE_DEBUG=1",
+            "-DPONE_INTERNAL=1",
+            "-g",
+            "-O0",
+            "-luser32",
+            "-lGdi32",
+            "-lWinm",
+            "-o",
+            "pone.exe",
+            "win32_platform.obj",
+            "pone.obj",
+            "main.obj"
+        ],
+        "file": "src\\main.cpp"
+    }
+]
