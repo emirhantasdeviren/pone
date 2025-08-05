@@ -31,8 +31,8 @@ struct Win32SoundOutput {
     i32 samplesPerSecond;
     u32 runningSampleIndex;
     i32 bytesPerSample;
-    i32 secondaryBufferSize;
-    i32 latencySampleCount;
+    DWORD secondaryBufferSize;
+    DWORD safetyBytes;
 };
 
 struct Win32PerfCounterFreq {
@@ -407,9 +407,12 @@ i32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance,
             soundOutput.bytesPerSample = sizeof(i16) * 2;
             soundOutput.secondaryBufferSize =
                 soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
-            i32 framesOfAudioLatency = 2;
-            soundOutput.latencySampleCount =
-                framesOfAudioLatency * soundOutput.samplesPerSecond / gameFps;
+            soundOutput.safetyBytes = (soundOutput.samplesPerSecond *
+                                       soundOutput.bytesPerSample / gameFps) /
+                                      4;
+            DWORD expectedSoundBytesPerFrame =
+                (soundOutput.samplesPerSecond * soundOutput.bytesPerSample) /
+                gameFps;
 
             win32InitDSound(window, soundOutput.samplesPerSecond,
                             soundOutput.secondaryBufferSize);
@@ -440,11 +443,9 @@ i32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 
             if (samples && memory.permanentStorage && memory.transientStorage) {
                 usize debugTimeMarkerIndex = 0;
-                Win32DebugTimeMarker debugTimeMarker[15] = {
-                    {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}};
+                Win32DebugTimeMarker debugTimeMarker[15];
 
                 b8 soundIsValid = 0;
-                DWORD lastPlayCursor = 0;
 
                 PoneInput input = {};
                 LARGE_INTEGER lastCounter = win32GetWallClock();
@@ -454,32 +455,6 @@ i32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                         input.keyboardInput.states[i].halfTransitionCount = 0;
                     }
                     win32ProcessPendingMessages(&input, &globalRunning);
-                    DWORD bytesToWrite = 0;
-                    DWORD byteToLock = 0;
-                    DWORD targetCursor = 0;
-                    if (soundIsValid) {
-                        byteToLock = (soundOutput.runningSampleIndex *
-                                      soundOutput.bytesPerSample) %
-                                     soundOutput.secondaryBufferSize;
-                        targetCursor =
-                            (lastPlayCursor + (soundOutput.latencySampleCount *
-                                               soundOutput.bytesPerSample)) %
-                            soundOutput.secondaryBufferSize;
-
-                        if (byteToLock > targetCursor) {
-                            bytesToWrite =
-                                soundOutput.secondaryBufferSize - byteToLock;
-                            bytesToWrite += targetCursor;
-                        } else {
-                            bytesToWrite = targetCursor - byteToLock;
-                        }
-                    }
-
-                    PoneSoundBuffer soundBuffer;
-                    soundBuffer.samples = samples;
-                    soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
-                    soundBuffer.sampleCount =
-                        bytesToWrite / soundOutput.bytesPerSample;
 
                     PoneFramebuffer framebuffer;
                     framebuffer.memory = globalBackbuffer.memory;
@@ -487,12 +462,104 @@ i32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                     framebuffer.height = globalBackbuffer.height;
                     framebuffer.stride = globalBackbuffer.stride;
 
-                    poneUpdateAndRender(&memory, &framebuffer, &input,
-                                        &soundBuffer);
+                    poneUpdateAndRender(&memory, &framebuffer, &input);
 
-                    if (soundIsValid) {
+                    DWORD playCursor;
+                    DWORD writeCursor;
+                    HRESULT hr = globalDirectSoundBuffer->GetCurrentPosition(
+                        &playCursor, &writeCursor);
+                    if (SUCCEEDED(hr)) {
+                        if (!soundIsValid) {
+                            soundOutput.runningSampleIndex =
+                                writeCursor / soundOutput.bytesPerSample;
+                            soundIsValid = 1;
+                        }
+
+                        DWORD byteToLock = (soundOutput.runningSampleIndex *
+                                            soundOutput.bytesPerSample) %
+                                           soundOutput.secondaryBufferSize;
+                        DWORD safeWriteCursor = writeCursor;
+                        if (safeWriteCursor < playCursor) {
+                            safeWriteCursor += soundOutput.secondaryBufferSize;
+                        }
+                        assert(safeWriteCursor >= playCursor);
+                        safeWriteCursor += soundOutput.safetyBytes;
+                        DWORD expectedFrameBoundaryByte =
+                            playCursor + expectedSoundBytesPerFrame;
+                        b8 audioHasHighLatency =
+                            safeWriteCursor >= expectedFrameBoundaryByte;
+
+                        DWORD targetCursor = 0;
+                        if (audioHasHighLatency) {
+                            targetCursor = writeCursor +
+                                           expectedSoundBytesPerFrame +
+                                           soundOutput.safetyBytes;
+                        } else {
+                            targetCursor = expectedFrameBoundaryByte +
+                                           expectedSoundBytesPerFrame;
+                        }
+                        targetCursor %= soundOutput.secondaryBufferSize;
+
+                        DWORD bytesToWrite = 0;
+                        if (byteToLock > targetCursor) {
+                            bytesToWrite =
+                                soundOutput.secondaryBufferSize - byteToLock;
+                            bytesToWrite += targetCursor;
+                        } else {
+                            bytesToWrite = targetCursor - byteToLock;
+                        }
+
+                        PoneSoundBuffer soundBuffer;
+                        soundBuffer.samples = samples;
+                        soundBuffer.samplesPerSecond =
+                            soundOutput.samplesPerSecond;
+                        soundBuffer.sampleCount =
+                            bytesToWrite / soundOutput.bytesPerSample;
+                        poneGetSoundSamples(&memory, &soundBuffer);
+
+#if PONE_INTERNAL
+                        {
+                            Win32DebugTimeMarker *m =
+                                &debugTimeMarker[debugTimeMarkerIndex++];
+                            if (debugTimeMarkerIndex == 15) {
+                                debugTimeMarkerIndex = 0;
+                            }
+                            m->playCursor = playCursor;
+                            m->writeCursor = writeCursor;
+                        }
+                        hr = globalDirectSoundBuffer->GetCurrentPosition(
+                            &playCursor, &writeCursor);
+                        if (SUCCEEDED(hr)) {
+                            DWORD unwrappedWriteCursor = writeCursor;
+                            if (unwrappedWriteCursor < playCursor) {
+                                unwrappedWriteCursor +=
+                                    soundOutput.secondaryBufferSize;
+                            }
+                            DWORD audioLatencyBytes =
+                                unwrappedWriteCursor - playCursor;
+                            f32 audioLatencySeconds =
+                                ((f32)audioLatencyBytes /
+                                 (f32)soundOutput.bytesPerSample) /
+                                (f32)soundOutput.samplesPerSecond;
+
+                            PoneState *state =
+                                (PoneState *)memory.permanentStorage;
+                            char soundCursorBuf[256];
+                            _snprintf_s(
+                                soundCursorBuf, 256,
+                                "BTL: %u, TC: %u, BTW: %u - PC: "
+                                "%u, WC: %u DELTA: %u (%.3fs) - Tone Hz: %.2fHz Green Offset: %u\n",
+                                byteToLock, targetCursor, bytesToWrite,
+                                playCursor, writeCursor, audioLatencyBytes,
+                                audioLatencySeconds, (f32)state->toneHz, state->greenOffset);
+                            OutputDebugStringA(soundCursorBuf);
+                        }
+#endif
+
                         win32FillSoundBuffer(&soundOutput, byteToLock,
                                              bytesToWrite, &soundBuffer);
+                    } else {
+                        soundIsValid = 0;
                     }
 
                     LARGE_INTEGER workCounter = win32GetWallClock();
@@ -529,43 +596,6 @@ i32 CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                     win32DisplayBufferInWindow(&globalBackbuffer, deviceContext,
                                                dimension.width,
                                                dimension.height);
-
-                    DWORD playCursor;
-                    DWORD writeCursor;
-                    HRESULT hr = globalDirectSoundBuffer->GetCurrentPosition(
-                        &playCursor, &writeCursor);
-                    if (SUCCEEDED(hr)) {
-                        char soundCursorBuf[256];
-                        _snprintf_s(soundCursorBuf, sizeof(soundCursorBuf),
-                                    "LPC: %u, BTL: %u, TC: %u, BTW: %u - PC: "
-                                    "%u, WC: %u\n",
-                                    lastPlayCursor, byteToLock, targetCursor,
-                                    bytesToWrite, playCursor, writeCursor);
-                        OutputDebugStringA(soundCursorBuf);
-
-                        lastPlayCursor = playCursor;
-                        if (!soundIsValid) {
-                            soundOutput.runningSampleIndex =
-                                writeCursor / soundOutput.bytesPerSample;
-                            soundIsValid = 1;
-                        }
-
-                    } else {
-                        soundIsValid = 0;
-                    }
-                    // #if PONE_INTERNAL
-                    {
-                        if (soundIsValid) {
-                            Win32DebugTimeMarker *m =
-                                &debugTimeMarker[debugTimeMarkerIndex++];
-                            if (debugTimeMarkerIndex == 15) {
-                                debugTimeMarkerIndex = 0;
-                            }
-                            m->playCursor = playCursor;
-                            m->writeCursor = writeCursor;
-                        }
-                    }
-                    // #endif
 
                     char fpsBuffer[256];
                     _snprintf_s(fpsBuffer, sizeof(fpsBuffer), "%.02fms/f\n",

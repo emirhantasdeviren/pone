@@ -48,10 +48,9 @@ struct PoneInput {
     PoneKeyboardInput keyboardInput;
 };
 
-void poneUpdateAndRender(PoneMemory *memory,
-                         PoneFramebuffer *framebuffer,
-                         PoneInput *input,
-                         PoneSoundBuffer *soundBuffer);
-                        
+void poneUpdateAndRender(PoneMemory *memory, PoneFramebuffer *framebuffer,
+                         PoneInput *input);
+
+void poneGetSoundSamples(PoneMemory *memory, PoneSoundBuffer *soundBuffer);
 
 #endif

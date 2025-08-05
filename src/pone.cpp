@@ -2,10 +2,8 @@
 #include "math/constants.h"
 #include <math.h>
 
-static void
-poneRenderWeirdGradient(PoneFramebuffer *buf,
-                        i32 xOffset,
-                        i32 yOffset) {
+static void poneRenderWeirdGradient(PoneFramebuffer *buf, i32 xOffset,
+                                    i32 yOffset) {
     u8 *row = (u8 *)buf->memory;
     for (usize y = 0; y < buf->height; y++) {
         u32 *pixel = (u32 *)row;
@@ -33,12 +31,11 @@ poneRenderWeirdGradient(PoneFramebuffer *buf,
     }
 }
 
-static void
-poneSoundOutput(PoneSoundBuffer *soundBuffer, i32 toneHz) {
+static void poneSoundOutput(PoneSoundBuffer *soundBuffer, i32 toneHz) {
     static f32 t;
     i16 toneVolume = 5000;
     i32 wavePeriod = soundBuffer->samplesPerSecond / toneHz;
-    
+
     i16 *sampleOut = soundBuffer->samples;
     for (i32 i = 0; i < soundBuffer->sampleCount; i++) {
         f32 sineValue = sinf(t);
@@ -50,11 +47,8 @@ poneSoundOutput(PoneSoundBuffer *soundBuffer, i32 toneHz) {
     }
 }
 
-void
-poneUpdateAndRender(PoneMemory *memory,
-                    PoneFramebuffer *framebuffer,
-                    PoneInput *input,
-                    PoneSoundBuffer *soundBuffer) {
+void poneUpdateAndRender(PoneMemory *memory, PoneFramebuffer *framebuffer,
+                         PoneInput *input) {
 
     PoneState *state = (PoneState *)memory->permanentStorage;
     if (!memory->isInitialized) {
@@ -78,8 +72,9 @@ poneUpdateAndRender(PoneMemory *memory,
     }
 
     poneRenderWeirdGradient(framebuffer, state->blueOffset, state->greenOffset);
+}
 
-    // TODO(emirhan): Allow sample offsets here for more robust platform options
+void poneGetSoundSamples(PoneMemory *memory, PoneSoundBuffer *soundBuffer) {
+    PoneState *state = (PoneState *)memory->permanentStorage;
     poneSoundOutput(soundBuffer, state->toneHz);
-
 }
