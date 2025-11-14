@@ -1,6 +1,6 @@
 [
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -16,7 +16,23 @@
         "file": "src\\main.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_arena.obj",
+            "src\\pone_arena.cpp"
+        ],
+        "file": "src\\pone_arena.cpp"
+    },
+    {
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -32,7 +48,55 @@
         "file": "src\\pone_json.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_memory.obj",
+            "src\\pone_memory.cpp"
+        ],
+        "file": "src\\pone_memory.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_string.obj",
+            "src\\pone_string.cpp"
+        ],
+        "file": "src\\pone_string.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_gltf.obj",
+            "src\\pone_gltf.cpp"
+        ],
+        "file": "src\\pone_gltf.cpp"
+    },
+    {
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -48,7 +112,7 @@
         "file": "src\\pone_vulkan.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -64,7 +128,7 @@
         "file": "src\\pone_truetype.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -80,7 +144,7 @@
         "file": "src\\pone_math.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -96,7 +160,7 @@
         "file": "src\\pone_vec2.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -112,7 +176,39 @@
         "file": "src\\pone_rect.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_atomic.obj",
+            "src\\pone_atomic.cpp"
+        ],
+        "file": "src\\pone_atomic.cpp"
+    },
+    {
+        "directory": "W:\\pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "pone_work_queue.obj",
+            "src\\pone_work_queue.cpp"
+        ],
+        "file": "src\\pone_work_queue.cpp"
+    },
+    {
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -127,7 +223,7 @@
         "file": "src\\imgui.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -142,7 +238,7 @@
         "file": "src\\imgui_demo.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -157,7 +253,7 @@
         "file": "src\\imgui_draw.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -172,7 +268,7 @@
         "file": "src\\imgui_tables.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -187,7 +283,7 @@
         "file": "src\\imgui_widgets.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -203,7 +299,7 @@
         "file": "src\\imgui_impl_vulkan.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -218,7 +314,7 @@
         "file": "src\\imgui_impl_win32.cpp"
     },
     {
-        "directory": "W:\\vkguide",
+        "directory": "W:\\pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -226,7 +322,7 @@
             "-g",
             "-O0",
             "-o",
-            "vkguide.exe",
+            "pone.exe",
             "main.obj"
         ],
         "file": "src\\main.cpp"
