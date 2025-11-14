@@ -4,7 +4,6 @@
 #include "pone_types.h"
 #include "pone_arena.h"
 
-
 typedef void (*PoneWorkFn)(void *); 
 
 struct PoneWorkQueueData {
@@ -28,5 +27,6 @@ struct PoneWorkQueue {
 void pone_work_queue_init(PoneWorkQueue *queue, Arena *arena);
 b8 pone_work_queue_enqueue(PoneWorkQueue *queue, PoneWorkQueueData *data);
 b8 pone_work_queue_dequeue(PoneWorkQueue *queue, PoneWorkQueueData *data);
+usize pone_work_queue_length(PoneWorkQueue *queue);
 
 #endif

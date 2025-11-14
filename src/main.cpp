@@ -1,11 +1,13 @@
 #include "pone_arena.h"
 #include "pone_assert.h"
+#include "pone_atomic.h"
 #include "pone_gltf.h"
 #include "pone_json.h"
 #include "pone_memory.h"
 #include "pone_truetype.h"
 #include "pone_types.h"
 #include "pone_vulkan.h"
+#include "pone_work_queue.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -666,6 +668,90 @@ static PFN_vkVoidFunction imgui_vulkan_loader(const char *name,
     return fn;
 }
 
+struct PoneThreadInfo {
+    usize thread_index;
+    PoneWorkQueue *work_queue;
+    volatile b8 *work_available;
+};
+
+struct PoneThreadWorkData {
+    PoneThreadInfo *thread_info;
+    void *user_data;
+};
+
+static void pone_produce_work(PoneThreadInfo *thread_info,
+                              PoneWorkQueueData *data) {
+    pone_assert(pone_work_queue_enqueue(thread_info->work_queue, data));
+    _pone_atomic_store_n(thread_info->work_available, 1,
+                         PONE_MEMORY_ORDERING_RELEASE);
+    WakeByAddressSingle((void *)thread_info->work_available);
+}
+
+static b8 pone_try_consume_work(PoneThreadInfo *thread_info) {
+    PoneWorkQueueData data;
+    b8 original_work_avaiable = _pone_atomic_load_n(
+        thread_info->work_available, PONE_MEMORY_ORDERING_ACQUIRE);
+    if (original_work_avaiable) {
+        if (pone_work_queue_dequeue(thread_info->work_queue, &data)) {
+            _pone_atomic_store_n(
+                thread_info->work_available,
+                pone_work_queue_length(thread_info->work_queue) != 0,
+                PONE_MEMORY_ORDERING_RELEASE);
+            PoneThreadWorkData thread_data = {
+                .thread_info = thread_info,
+                .user_data = data.user_data,
+            };
+            (data.work)(&thread_data);
+            return 1;
+        }
+
+        return 0;
+    } else {
+        return 0;
+    }
+}
+
+static void pone_consume_work(PoneThreadInfo *thread_info) {
+    PoneWorkQueueData data;
+    for (;;) {
+        b8 original_work_avaiable = _pone_atomic_load_n(
+            thread_info->work_available, PONE_MEMORY_ORDERING_ACQUIRE);
+        if (original_work_avaiable) {
+            if (pone_work_queue_dequeue(thread_info->work_queue, &data)) {
+                _pone_atomic_store_n(
+                    thread_info->work_available,
+                    pone_work_queue_length(thread_info->work_queue) != 0,
+                    PONE_MEMORY_ORDERING_RELEASE);
+                PoneThreadWorkData thread_data = {
+                    .thread_info = thread_info,
+                    .user_data = data.user_data,
+                };
+                (data.work)(&thread_data);
+            }
+        } else {
+            WaitOnAddress(thread_info->work_available, &original_work_avaiable,
+                          sizeof(b8), INFINITE);
+        }
+    }
+}
+
+static DWORD WINAPI pone_win32_consumer_thread_proc(LPVOID param) {
+    pone_consume_work((PoneThreadInfo *)param);
+    return 0;
+}
+
+static void pone_print_string(usize thread_index, char *s) {
+    char buf[256];
+    _snprintf(buf, 256, "Thread %d: %s\n", thread_index, s);
+    OutputDebugStringA(buf);
+}
+
+static void pone_print_string_work(void *user_data) {
+    PoneThreadWorkData *work_data = (PoneThreadWorkData *)user_data;
+    pone_print_string(work_data->thread_info->thread_index,
+                      (char *)work_data->user_data);
+}
+
 int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
             int cmd_show) {
     WNDCLASSA window_class = {};
@@ -703,6 +789,46 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                 (void *)((usize)base_address + total_memory_size -
                          transient_memory.capacity),
                 transient_memory.capacity, MEM_COMMIT, PAGE_READWRITE);
+
+            PoneWorkQueue work_queue;
+            pone_work_queue_init(&work_queue, &permanent_memory);
+            volatile b8 *work_available =
+                (volatile b8 *)arena_alloc(&permanent_memory, sizeof(b8));
+            *work_available = 0;
+
+            usize thread_count = 8;
+            PoneThreadInfo *thread_infos = arena_alloc_array(
+                &permanent_memory, thread_count, PoneThreadInfo);
+            thread_infos[0] = {
+                .thread_index = 0,
+                .work_queue = &work_queue,
+                .work_available = work_available,
+            };
+            for (usize i = 1; i < thread_count; ++i) {
+                thread_infos[i] = {
+                    .thread_index = i,
+                    .work_queue = &work_queue,
+                    .work_available = work_available,
+                };
+
+                HANDLE thread_handle =
+                    CreateThread(0, 0, pone_win32_consumer_thread_proc,
+                                 &thread_infos[i], 0, 0);
+                CloseHandle(thread_handle);
+            }
+
+            PoneWorkQueueData data[256];
+            for (usize i = 0; i < 256; ++i) {
+                data[i].work = pone_print_string_work;
+                arena_sprintf(&transient_memory, (char **)&data[i].user_data,
+                              "String %d", i);
+
+                pone_produce_work(thread_infos, data + i);
+            }
+
+            while (pone_work_queue_length(thread_infos[0].work_queue) != 0) {
+                pone_try_consume_work(thread_infos);
+            }
 
             usize capacity = MEGABYTES((usize)32);
             Arena *global_arena = arena_create(capacity);

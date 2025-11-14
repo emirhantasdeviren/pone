@@ -4,7 +4,8 @@
 #define PONE_WORK_QUEUE_CAPACITY 256
 
 void pone_work_queue_init(PoneWorkQueue *queue, Arena *arena) {
-    queue->buffer = arena_alloc_array(arena, PONE_WORK_QUEUE_CAPACITY, PoneWorkQueueCell);
+    queue->buffer =
+        arena_alloc_array(arena, PONE_WORK_QUEUE_CAPACITY, PoneWorkQueueCell);
     queue->buffer_mask = PONE_WORK_QUEUE_CAPACITY - 1;
     for (usize i = 0; i < PONE_WORK_QUEUE_CAPACITY; ++i) {
         _pone_atomic_store_n(&queue->buffer[i].sequence, i,
@@ -78,4 +79,11 @@ b8 pone_work_queue_dequeue(PoneWorkQueue *queue, PoneWorkQueueData *data) {
                          PONE_MEMORY_ORDERING_RELEASE);
 
     return 1;
+}
+
+usize pone_work_queue_length(PoneWorkQueue *queue) {
+    return _pone_atomic_load_n(&queue->enqueue_pos,
+                               PONE_MEMORY_ORDERING_RELAXED) -
+           _pone_atomic_load_n(&queue->dequeue_pos,
+                               PONE_MEMORY_ORDERING_RELAXED);
 }
