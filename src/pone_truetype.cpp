@@ -207,19 +207,6 @@ pone_sfnt_scanner_parse_cmap_subtable(PoneSfntScanner *scanner,
     subtable->offset = pone_sfnt_scanner_read_be_u32(scanner);
 }
 
-struct PoneSfntSequentialMapGroup {
-    u32 start_char;
-    u32 end_char;
-    u32 start_glyph_id;
-};
-
-struct PoneSfntCmapFormat12 {
-    u32 length;
-    u32 language;
-    usize group_count;
-    PoneSfntSequentialMapGroup *groups;
-};
-
 static void pone_sfnt_scanner_parse_cmap_format_12(PoneSfntScanner *scanner,
                                                    PoneSfntCmapFormat12 *format,
                                                    Arena *arena) {
@@ -534,8 +521,8 @@ PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena) {
     pone_assert(found_unicode_subtable);
     u16 format_id = pone_sfnt_scanner_read_be_u16(&scanner);
     pone_assert(format_id == 12);
-    PoneSfntCmapFormat12 format;
-    pone_sfnt_scanner_parse_cmap_format_12(&scanner, &format, arena);
+    PoneSfntCmapFormat12 format_12;
+    pone_sfnt_scanner_parse_cmap_format_12(&scanner, &format_12, arena);
 
     scanner.cursor = head_entry->offset;
     PoneSfntHead head;
@@ -552,6 +539,7 @@ PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena) {
 
     PoneTrueTypeFont *font =
         (PoneTrueTypeFont *)arena_alloc(arena, sizeof(PoneTrueTypeFont));
+    font->format_12 = format_12;
     font->units_per_em = head.units_per_em;
     font->global_bbox = head.global_bbox;
     font->glyph_count = maxp.num_glyphs;
@@ -1019,8 +1007,65 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
                                      u32 d_pad, Arena *permanent_arena,
                                      Arena *transient_arena, u32 ***sdf_bitmaps,
                                      usize *sdf_bitmap_count) {
-    usize glyph_count = 7;
-    *sdf_bitmap_count = glyph_count;
+    usize char_codes_count = 106;
+    u32 *char_codes = arena_alloc_array(transient_arena, char_codes_count, u32);
+    // ASCII chars
+    for (usize i = 0; i < 94; ++i) {
+        char_codes[i] = i + 33;
+    }
+    char_codes[94] = 0x87c3;  // Ç
+    char_codes[95] = 0x96c3;  // Ö
+    char_codes[96] = 0x9cc3;  // Ü
+    char_codes[97] = 0xa7c3;  // ç
+    char_codes[98] = 0xb6c3;  // ö
+    char_codes[99] = 0xbcc3; // ü
+    char_codes[100] = 0x9ec4; // Ğ
+    char_codes[101] = 0x9fc4; // ğ
+    char_codes[102] = 0xb0c4; // İ
+    char_codes[103] = 0xb1c4; // ı
+    char_codes[104] = 0x9ec5; // Ş
+    char_codes[105] = 0x9fc5; // ş
+
+    u32 glyph_ids_count = char_codes_count;
+    u32 *glyph_ids = arena_alloc_array(transient_arena, glyph_ids_count, u32);
+
+    usize i = 0;
+    usize j = 0;
+    while (i < char_codes_count && j < font->format_12.group_count) {
+        u32 *utf8_char = char_codes + i;
+        PoneSfntSequentialMapGroup *group = font->format_12.groups + j;
+
+        u32 char_code = 0;
+        u8 *utf8_byte = (u8 *)utf8_char;
+        if (((*utf8_byte) & 0x80) == 0) {
+            char_code = (u32)(*utf8_byte);
+        } else if (((*utf8_byte) & 0xe0) == 0xc0) {
+            char_code |= (*utf8_byte & 0x1f) << 6;
+            utf8_byte++;
+            char_code |= ((u32)(*utf8_byte) & 0x3f);
+        } else if (((*utf8_byte) & 0xf0) == 0xe0) {
+            pone_assert(0 && "unimplemented");
+        } else if (((*utf8_byte) & 0xf8) == 0xf0) {
+            pone_assert(0 && "unimplemented");
+        } else {
+            pone_assert(0 && "invalid utf8 char");
+        }
+
+        if (char_code >= group->start_char && char_code <= group->end_char) {
+            glyph_ids[i] =
+                group->start_glyph_id + (char_code - group->start_char);
+            ++i;
+            if (char_code == group->end_char) {
+                ++j;
+            }
+        } else if (char_code > group->end_char) {
+            ++j;
+        } else {
+            pone_assert(0 && "missed one");
+        }
+    }
+
+    *sdf_bitmap_count = glyph_ids_count;
     *sdf_bitmaps = arena_alloc_array(permanent_arena, *sdf_bitmap_count, u32 *);
     for (usize sdf_bitmap_index = 0; sdf_bitmap_index < *sdf_bitmap_count;
          ++sdf_bitmap_index) {
@@ -1044,9 +1089,10 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
 
     u32 content_bitmap_size = resolution - d_pad * 2;
 
-    for (usize glyph_index = 0; glyph_index < glyph_count; ++glyph_index) {
-        u32 *sdf_bitmap = *((*sdf_bitmaps) + glyph_index);
-        PoneSfntGlyph *glyph = font->glyphs + glyph_index;
+    for (usize glyph_id_index = 0; glyph_id_index < glyph_ids_count; ++glyph_id_index) {
+        u32 glyph_id = glyph_ids[glyph_id_index];
+        u32 *sdf_bitmap = *((*sdf_bitmaps) + glyph_id_index);
+        PoneSfntGlyph *glyph = font->glyphs + glyph_id;
         PoneRect glyph_bbox;
         pone_sfnt_glyph_bbox_rect(glyph, &glyph_bbox);
         f32 bbox_max = PONE_MAX(pone_rect_width(&glyph_bbox),

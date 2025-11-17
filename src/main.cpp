@@ -3,6 +3,7 @@
 #include "pone_atomic.h"
 #include "pone_gltf.h"
 #include "pone_json.h"
+#include "pone_math.h"
 #include "pone_memory.h"
 #include "pone_truetype.h"
 #include "pone_types.h"
@@ -844,23 +845,59 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                 pone_truetype_parse(font_file, &transient_memory);
             u32 **sdf_bitmaps;
             usize sdf_bitmap_count;
-            u32 sdf_size = 64;
-            u32 sdf_pad = 8;
+            u32 sdf_size = 256;
+            u32 sdf_pad = 16;
             pone_truetype_font_generate_sdf(
                 font, sdf_size, sdf_pad, &permanent_memory, &transient_memory,
                 &sdf_bitmaps, &sdf_bitmap_count);
+            usize pgm_width = (usize)pone_ceil(pone_sqrt((f32)sdf_bitmap_count));
+            usize pgm_height = (usize)pone_ceil((f32)sdf_bitmap_count / pgm_width);
+            pgm_width *= sdf_size; 
+            pgm_height *= sdf_size; 
             HANDLE pgm_file_handle =
-                CreateFileA("d_glyph.pgm", GENERIC_WRITE, FILE_SHARE_WRITE, 0,
-                            CREATE_ALWAYS, 0, 0);
+                CreateFileA("sdf_output.pgm", GENERIC_WRITE, FILE_SHARE_WRITE,
+                            0, CREATE_ALWAYS, 0, 0);
             usize pgm_header_scratch_offset = transient_memory.offset;
             char *pgm_header;
             i32 pgm_header_len =
                 arena_sprintf(&transient_memory, &pgm_header,
-                              "P2\n%d %d\n255\n", sdf_size, sdf_size);
+                              "P2\n%d %d\n255\n", pgm_width, pgm_height);
             WriteFile(pgm_file_handle, pgm_header, pgm_header_len, 0, 0);
             transient_memory.offset = pgm_header_scratch_offset;
 
-            u32 *d_sdf_bitmap = sdf_bitmaps[5];
+            for (usize pgm_y = 0; pgm_y < pgm_height; ++pgm_y) {
+                for (usize pgm_x = 0; pgm_x < pgm_width; ++pgm_x) {
+                    usize sdf_index =
+                        ((pgm_y / sdf_size) * (pgm_width / sdf_size)) +
+                        pgm_x / sdf_size;
+                    if (sdf_index < sdf_bitmap_count) {
+                        u32 *sdf_bitmap = sdf_bitmaps[sdf_index];
+                        usize sdf_x = pgm_x % sdf_size;
+                        usize sdf_y = pgm_y % sdf_size;
+
+                        u32 pixel = sdf_bitmap[(sdf_y * sdf_size) + sdf_x];
+                        u32 gray_value = (pixel & 0xFF000000) >> 24;
+
+                        usize scratch_offset = transient_memory.offset;
+                        char *buf;
+                        i32 buf_len = arena_sprintf(&transient_memory, &buf,
+                                                    "%d", gray_value);
+                        WriteFile(pgm_file_handle, buf, buf_len, 0, 0);
+
+                        transient_memory.offset = scratch_offset;
+                    } else {
+                        WriteFile(pgm_file_handle, "0", 1, 0, 0);
+                    }
+
+                    if (pgm_x != pgm_width - 1) {
+                        WriteFile(pgm_file_handle, " ", 1, 0, 0);
+                    }
+                }
+                WriteFile(pgm_file_handle, "\n", 1, 0, 0);
+            }
+
+#if 0
+            u32 *d_sdf_bitmap = sdf_bitmaps[92];
             for (usize sdf_y = 0; sdf_y < sdf_size; ++sdf_y) {
                 for (usize sdf_x = 0; sdf_x < sdf_size; ++sdf_x) {
                     u32 pixel = d_sdf_bitmap[(sdf_y * sdf_size) + sdf_x];
@@ -879,6 +916,7 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                 }
                 WriteFile(pgm_file_handle, "\n", 1, 0, 0);
             }
+#endif
             CloseHandle(pgm_file_handle);
 
             usize glb_size;

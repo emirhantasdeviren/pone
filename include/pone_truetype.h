@@ -55,11 +55,25 @@ struct PoneSfntGlyph {
     };
 };
 
+struct PoneSfntSequentialMapGroup {
+    u32 start_char;
+    u32 end_char;
+    u32 start_glyph_id;
+};
+
+struct PoneSfntCmapFormat12 {
+    u32 length;
+    u32 language;
+    usize group_count;
+    PoneSfntSequentialMapGroup *groups;
+};
+
 struct PoneTrueTypeFont {
     u16 units_per_em;
     usize glyph_count;
     PoneSfntGlyphBbox global_bbox;
     PoneSfntGlyph *glyphs;
+    PoneSfntCmapFormat12 format_12;
 };
 
 PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena);
