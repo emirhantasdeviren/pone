@@ -42,6 +42,15 @@ static inline u16 pone_sfnt_scanner_read_be_u16(PoneSfntScanner *scanner) {
     return (v << 8) | (v >> 8);
 }
 
+static inline i8 pone_sfnt_scanner_read_be_i8(PoneSfntScanner *scanner) {
+    pone_assert(scanner->cursor < scanner->input.length);
+
+    i8 v = *(i8 *)((u8 *)scanner->input.data + scanner->cursor);
+    ++scanner->cursor;
+
+    return v;
+}
+
 static inline i16 pone_sfnt_scanner_read_be_i16(PoneSfntScanner *scanner) {
     pone_assert(scanner->cursor < scanner->input.length);
 
@@ -58,6 +67,12 @@ static inline u8 pone_sfnt_scanner_read_u8(PoneSfntScanner *scanner) {
     u8 v = *((u8 *)scanner->input.data + scanner->cursor);
     ++scanner->cursor;
     return v;
+}
+
+static inline f32 pone_sfnt_scanner_read_f2dot14(PoneSfntScanner *scanner) {
+    i16 v = pone_sfnt_scanner_read_be_i16(scanner);
+
+    return (f32)v / (1 << 14);
 }
 
 struct PoneSfntFontDir {
@@ -372,7 +387,11 @@ static void pone_sfnt_parse_simple_glyph(PoneSfntScanner *scanner,
     };
 }
 
-static b8 pone_sfnt_compound_glyph_arg1_and_arg2_are_words(u16 flags) {
+static inline b8 pone_sfnt_compound_glyph_args_are_x_y_values(u16 flags) {
+    return flags & 0x2;
+}
+
+static inline b8 pone_sfnt_compound_glyph_arg1_and_arg2_are_words(u16 flags) {
     return flags & 0x1;
 }
 
@@ -393,33 +412,40 @@ pone_sfnt_parse_compound_glyph(PoneSfntScanner *scanner,
                                PoneSfntCompoundGlyph *compound_glyph) {
     compound_glyph->flags = pone_sfnt_scanner_read_be_u16(scanner);
     compound_glyph->glyph_index = pone_sfnt_scanner_read_be_u16(scanner);
-    compound_glyph->arg1 =
-        (void *)((u8 *)scanner->input.data + scanner->cursor);
+    pone_assert(
+        pone_sfnt_compound_glyph_args_are_x_y_values(compound_glyph->flags));
+
     if (pone_sfnt_compound_glyph_arg1_and_arg2_are_words(
             compound_glyph->flags)) {
-        scanner->cursor += 2;
-        compound_glyph->arg2 =
-            (void *)((u8 *)scanner->input.data + scanner->cursor);
-        scanner->cursor += 2;
+        compound_glyph->offset.x = (f32)pone_sfnt_scanner_read_be_i16(scanner);
+        compound_glyph->offset.y = (f32)pone_sfnt_scanner_read_be_i16(scanner);
     } else {
-        scanner->cursor += 1;
-        compound_glyph->arg2 =
-            (void *)((u8 *)scanner->input.data + scanner->cursor);
-        scanner->cursor += 1;
+        compound_glyph->offset.x = (f32)pone_sfnt_scanner_read_be_i8(scanner);
+        compound_glyph->offset.y = (f32)pone_sfnt_scanner_read_be_i8(scanner);
     }
-    compound_glyph->transformation_options =
-        (void *)((u8 *)scanner->input.data + scanner->cursor);
 
     if (pone_sfnt_compound_glyph_we_have_a_scale(compound_glyph->flags)) {
-        scanner->cursor += 2;
+        compound_glyph->transformation.data[0] = pone_sfnt_scanner_read_f2dot14(scanner);
+        compound_glyph->transformation.data[1] = 0.0f;
+        compound_glyph->transformation.data[2] = 0.0f;
+        compound_glyph->transformation.data[3] = compound_glyph->transformation.data[0];
     } else if (pone_sfnt_compound_glyph_we_have_an_x_and_y_scale(
                    compound_glyph->flags)) {
-        scanner->cursor += 4;
+        compound_glyph->transformation.data[0] = pone_sfnt_scanner_read_f2dot14(scanner);
+        compound_glyph->transformation.data[1] = 0.0f;
+        compound_glyph->transformation.data[2] = 0.0f;
+        compound_glyph->transformation.data[3] = pone_sfnt_scanner_read_f2dot14(scanner);
     } else if (pone_sfnt_compound_glyph_we_have_a_two_by_two(
                    compound_glyph->flags)) {
-        scanner->cursor += 8;
+        compound_glyph->transformation.data[0] = pone_sfnt_scanner_read_f2dot14(scanner);
+        compound_glyph->transformation.data[1] = pone_sfnt_scanner_read_f2dot14(scanner);
+        compound_glyph->transformation.data[2] = pone_sfnt_scanner_read_f2dot14(scanner);
+        compound_glyph->transformation.data[3] = pone_sfnt_scanner_read_f2dot14(scanner);
     } else {
-        compound_glyph->transformation_options = 0;
+        compound_glyph->transformation.data[0] = 1.0f;
+        compound_glyph->transformation.data[1] = 0.0f;
+        compound_glyph->transformation.data[2] = 0.0f;
+        compound_glyph->transformation.data[3] = 1.0f;
     }
 }
 
@@ -1018,7 +1044,7 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
     char_codes[96] = 0x9cc3;  // Ü
     char_codes[97] = 0xa7c3;  // ç
     char_codes[98] = 0xb6c3;  // ö
-    char_codes[99] = 0xbcc3; // ü
+    char_codes[99] = 0xbcc3;  // ü
     char_codes[100] = 0x9ec4; // Ğ
     char_codes[101] = 0x9fc4; // ğ
     char_codes[102] = 0xb0c4; // İ
@@ -1089,7 +1115,8 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
 
     u32 content_bitmap_size = resolution - d_pad * 2;
 
-    for (usize glyph_id_index = 0; glyph_id_index < glyph_ids_count; ++glyph_id_index) {
+    for (usize glyph_id_index = 0; glyph_id_index < glyph_ids_count;
+         ++glyph_id_index) {
         u32 glyph_id = glyph_ids[glyph_id_index];
         u32 *sdf_bitmap = *((*sdf_bitmaps) + glyph_id_index);
         PoneSfntGlyph *glyph = font->glyphs + glyph_id;

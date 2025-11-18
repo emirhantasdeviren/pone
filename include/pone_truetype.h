@@ -3,6 +3,9 @@
 
 #include "pone_arena.h"
 #include "pone_types.h"
+#include "pone_mat2.h"
+#include "pone_vec2.h"
+#include "pone_rect.h"
 
 struct PoneTruetypeInput {
     void *data;
@@ -38,12 +41,16 @@ struct PoneSfntSimpleGlyph {
     PoneSfntGlyphPoint *points;
 };
 
-struct PoneSfntCompoundGlyph {
+struct PoneSfntComponentGlyph {
     u16 flags;
     u16 glyph_index;
-    void *arg1;
-    void *arg2;
-    void *transformation_options;
+    Vec2 offset;
+    Mat2 transformation;
+};
+
+struct PoneSfntCompoundGlyph {
+    usize component_glyph_count;
+    PoneSfntComponentGlyph *component_glyphs;
 };
 
 struct PoneSfntGlyph {

@@ -44,11 +44,6 @@ struct VulkanFnDispatcher {
     PFN_vkGetDeviceProcAddr vk_get_device_proc_addr;
 };
 
-struct Vec2 {
-    f32 x;
-    f32 y;
-};
-
 struct Vec3 {
     f32 x;
     f32 y;
