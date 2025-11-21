@@ -840,8 +840,8 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                 pone_truetype_parse(font_file, &transient_memory);
             u32 **sdf_bitmaps;
             usize sdf_bitmap_count;
-            u32 sdf_size = 256;
-            u32 sdf_pad = 16;
+            u32 sdf_size = 32;
+            u32 sdf_pad = 4;
             pone_truetype_font_generate_sdf(
                 font, sdf_size, sdf_pad, &permanent_memory, &transient_memory,
                 &sdf_bitmaps, &sdf_bitmap_count);
