@@ -5,7 +5,8 @@
 
 #define PONE_EPSILON 1.19209290e-07f
 #define PONE_PI 3.14159265358979323846264338327950288f
-#define PONE_F32_MAX 3.40282347e+38f
+#define PONE_F32_MAX  3.40282347e+38f
+#define PONE_F32_MIN -3.40282347e+38f
 
 #define PONE_MAX(x, y) (x) < (y) ? (y) : (x)
 #define PONE_MIN(x, y) (x) < (y) ? (x) : (y)
