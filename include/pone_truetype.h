@@ -2,10 +2,10 @@
 #define PONE_TRUETYPE_H
 
 #include "pone_arena.h"
-#include "pone_types.h"
 #include "pone_mat2.h"
-#include "pone_vec2.h"
 #include "pone_rect.h"
+#include "pone_types.h"
+#include "pone_vec2.h"
 
 struct PoneTruetypeInput {
     void *data;
@@ -83,10 +83,21 @@ struct PoneTrueTypeFont {
     PoneSfntCmapFormat12 format_12;
 };
 
+struct PoneTrueTypeGlyphSdfBitmap {
+    usize width;
+    usize height;
+    u32 *buf;
+};
+
+struct PoneTrueTypeSdfAtlas {
+    usize glyph_count;
+    PoneTrueTypeGlyphSdfBitmap *sdf_bitmaps;
+};
+
 PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena);
 void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
                                      u32 d_pad, Arena *permanent_arena,
-                                     Arena *transient_arena, u32 ***sdf_bitmaps,
-                                     usize *sdf_bitmap_count);
+                                     Arena *transient_arena,
+                                     PoneTrueTypeSdfAtlas *atlas);
 
 #endif

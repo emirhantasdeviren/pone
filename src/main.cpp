@@ -838,17 +838,15 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                                            &font_file.length, font_file.data));
             PoneTrueTypeFont *font =
                 pone_truetype_parse(font_file, &transient_memory);
-            u32 **sdf_bitmaps;
-            usize sdf_bitmap_count;
-            u32 sdf_size = 32;
-            u32 sdf_pad = 4;
-            pone_truetype_font_generate_sdf(
-                font, sdf_size, sdf_pad, &permanent_memory, &transient_memory,
-                &sdf_bitmaps, &sdf_bitmap_count);
-            usize pgm_width = (usize)pone_ceil(pone_sqrt((f32)sdf_bitmap_count));
-            usize pgm_height = (usize)pone_ceil((f32)sdf_bitmap_count / pgm_width);
-            pgm_width *= sdf_size; 
-            pgm_height *= sdf_size; 
+            PoneTrueTypeSdfAtlas sdf_atlas;
+            u32 sdf_size = 48;
+            u32 sdf_pad = 6;
+            pone_truetype_font_generate_sdf(font, sdf_size, sdf_pad,
+                                            &permanent_memory,
+                                            &transient_memory, &sdf_atlas);
+            usize pgm_width = sdf_atlas.sdf_bitmaps[0].width;
+            usize pgm_height = sdf_atlas.sdf_bitmaps[0].height;
+
             HANDLE pgm_file_handle =
                 CreateFileA("sdf_output.pgm", GENERIC_WRITE, FILE_SHARE_WRITE,
                             0, CREATE_ALWAYS, 0, 0);
@@ -860,6 +858,26 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
             WriteFile(pgm_file_handle, pgm_header, pgm_header_len, 0, 0);
             transient_memory.offset = pgm_header_scratch_offset;
 
+            PoneTrueTypeGlyphSdfBitmap *sdf_bitmap = sdf_atlas.sdf_bitmaps;
+            for (usize pgm_y = 0; pgm_y < pgm_height; ++pgm_y) {
+                for (usize pgm_x = 0; pgm_x < pgm_width; ++pgm_x) {
+                    u32 pixel = sdf_bitmap->buf[pgm_y * pgm_width + pgm_x];
+                    u32 gray_value = (pixel & 0xFF000000) >> 24;
+
+                    usize scratch_offset = transient_memory.offset;
+                    char *buf;
+                    i32 buf_len = arena_sprintf(&transient_memory, &buf, "%d",
+                                                gray_value);
+                    WriteFile(pgm_file_handle, buf, buf_len, 0, 0);
+                    transient_memory.offset = scratch_offset;
+
+                    if (pgm_x != pgm_width - 1) {
+                        WriteFile(pgm_file_handle, " ", 1, 0, 0);
+                    }
+                }
+                WriteFile(pgm_file_handle, "\n", 1, 0, 0);
+            }
+#if 0
             for (usize pgm_y = 0; pgm_y < pgm_height; ++pgm_y) {
                 for (usize pgm_x = 0; pgm_x < pgm_width; ++pgm_x) {
                     usize sdf_index =
@@ -890,6 +908,7 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                 }
                 WriteFile(pgm_file_handle, "\n", 1, 0, 0);
             }
+#endif
 
 #if 0
             u32 *d_sdf_bitmap = sdf_bitmaps[92];
