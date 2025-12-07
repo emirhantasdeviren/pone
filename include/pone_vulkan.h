@@ -1,12 +1,19 @@
 #ifndef PONE_VULKAN_H
 #define PONE_VULKAN_H
 
+#include "pone_arena.h"
+#include "pone_types.h"
+#include "pone_platform.h"
+
+#if defined(PONE_PLATFORM_WIN64)
 #define VK_USE_PLATFORM_WIN32_KHR
+#elif defined(PONE_PLATFORM_LINUX)
+#define VK_USE_PLATFORM_WAYLAND_KHR
+#endif
+
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
-#include "pone_arena.h"
-#include "pone_types.h"
 
 #define pone_vk_check(res) pone_assert((res) == VK_SUCCESS)
 

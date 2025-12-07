@@ -8,6 +8,9 @@ struct PoneString {
     usize len;
 };
 
+void pone_string_from_cstr(const char *s, PoneString *pone_s);
+
 b8 pone_string_eq(PoneString s1, PoneString s2);
+b8 pone_string_eq_c_str(const PoneString *s1, const char *s2);
 
 #endif

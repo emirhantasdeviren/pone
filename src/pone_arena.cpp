@@ -1,15 +1,12 @@
 #include "pone_arena.h"
 
 #include "pone_assert.h"
+#include "pone_platform.h"
 #include "pone_memory.h"
+
 #include <stdio.h>
+#include <stddef.h>
 
-static usize get_page_size() {
-    SYSTEM_INFO system_info;
-    GetSystemInfo(&system_info);
-
-    return (usize)system_info.dwPageSize;
-}
 
 void arena_init(Arena *arena, void *base, usize capacity) {
     arena->base = base;
@@ -18,13 +15,15 @@ void arena_init(Arena *arena, void *base, usize capacity) {
 }
 
 Arena *arena_create(usize capacity) {
-    usize page_size = get_page_size();
-    capacity += sizeof(Arena);
-    capacity += (page_size - 1) & -capacity;
+    PonePlatformSystemInfo system_info;
+    pone_platform_get_system_info(&system_info);
 
-    Arena *arena = (Arena *)VirtualAlloc(0, capacity, MEM_RESERVE | MEM_COMMIT,
-                                         PAGE_READWRITE);
+    capacity += sizeof(Arena);
+    capacity += (system_info.page_size - 1) & -capacity;
+
+    Arena *arena = (Arena *)pone_platform_allocate_memory(0, capacity);
     pone_assert(arena);
+
     usize align = alignof(max_align_t);
     usize base = (usize)arena + sizeof(Arena);
     base += (align - 1) & -base;
@@ -102,8 +101,9 @@ void *arena_realloc(Arena *arena, void *p, usize size) {
 void arena_clear(Arena *arena) { arena->offset = 0; }
 
 void arena_destroy(Arena **arena) {
+
     if (arena) {
-        VirtualFree(*arena, 0, MEM_RELEASE);
+        pone_platform_deallocate_memory((void *)*arena);
         *arena = 0;
     }
 }

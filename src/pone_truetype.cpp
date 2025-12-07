@@ -7,8 +7,6 @@
 #include "pone_rect_pack.h"
 #include "pone_string.h"
 
-#include <windows.h>
-
 struct PoneSfntScanner {
     PoneTruetypeInput input;
     usize cursor;
@@ -361,21 +359,11 @@ static void pone_sfnt_parse_simple_glyph(PoneSfntScanner *scanner,
         pone_sfnt_scanner_read_coordinate(&y_coordinates, is_y_short_vector,
                                           is_same_y, &y);
 
-        if (debug_print && on_curve) {
-            usize scratch_offset = arena->offset;
-            char *s;
-            arena_sprintf(arena, &s, "(%d, %d)\n", x, y);
-            OutputDebugStringA(s);
-            arena->offset = scratch_offset;
-        }
         points[point_index] = {
             .on_curve = on_curve,
             .x = x,
             .y = y,
         };
-    }
-    if (debug_print) {
-        OutputDebugStringA("\n");
     }
     *scanner = y_coordinates;
     arena->offset = arena_temp_begin;

@@ -2,6 +2,7 @@
 #define PONE_ARENA_H
 
 #include "pone_types.h"
+#include <stdarg.h>
 
 struct Arena {
     void *base;
