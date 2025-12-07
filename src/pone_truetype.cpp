@@ -4,6 +4,7 @@
 #include "pone_math.h"
 #include "pone_memory.h"
 #include "pone_rect.h"
+#include "pone_rect_pack.h"
 #include "pone_string.h"
 
 #include <windows.h>
@@ -1207,7 +1208,9 @@ static Vec2 pone_sfnt_glyph_point_mid_vec2(PoneSfntGlyphPoint *p1,
 }
 
 struct PoneSdfData {
-    PoneTrueTypeGlyphSdfBitmap *sdf_bitmap;
+    usize width;
+    usize height;
+    u32 *sdf_buf;
     f32 *d_mins;
     i8 *delta_windings;
     u32 d_pad;
@@ -1392,6 +1395,53 @@ static void pone_sfnt_simple_glyph_bounding_box(
     }
 }
 
+static void pone_sfnt_glyph_bounding_box(PoneTrueTypeFont *font,
+                                         PoneSfntGlyph *glyph, PoneRect *bbox) {
+    switch (glyph->type) {
+    case PONE_SFNT_GLYPH_TYPE_SIMPLE: {
+        pone_sfnt_simple_glyph_bounding_box(&glyph->simple, 0, bbox);
+    } break;
+    case PONE_SFNT_GLYPH_TYPE_COMPOUND: {
+        *bbox = {
+            .p_min =
+                {
+                    .x = PONE_F32_MAX,
+                    .y = PONE_F32_MAX,
+                },
+            .p_max =
+                {
+                    .x = PONE_F32_MIN,
+                    .y = PONE_F32_MIN,
+                },
+        };
+        for (usize glyph_component_index = 0;
+             glyph_component_index < glyph->compound.component_glyph_count;
+             ++glyph_component_index) {
+            PoneSfntComponentGlyph *component_glyph_ref =
+                glyph->compound.component_glyphs + glyph_component_index;
+            PoneSfntGlyph *component_glyph =
+                font->glyphs + component_glyph_ref->glyph_index;
+            PoneSfntGlyphPointTransformation transform = {
+                .offset = component_glyph_ref->offset,
+                .scale = component_glyph_ref->transformation};
+            PoneSfntGlyphPointMapConstants map_constants = {
+                .range_map = 0,
+                .transform = &transform,
+            };
+            pone_assert(component_glyph->type == PONE_SFNT_GLYPH_TYPE_SIMPLE);
+            PoneRect component_bbox;
+            pone_sfnt_simple_glyph_bounding_box(
+                &component_glyph->simple, &map_constants, &component_bbox);
+            bbox->p_min.x = PONE_MIN(bbox->p_min.x, component_bbox.p_min.x);
+            bbox->p_min.y = PONE_MIN(bbox->p_min.y, component_bbox.p_min.y);
+            bbox->p_max.x = PONE_MAX(bbox->p_max.x, component_bbox.p_max.x);
+            bbox->p_max.y = PONE_MAX(bbox->p_max.y, component_bbox.p_max.y);
+        }
+        break;
+    }
+    }
+}
+
 static void pone_sfnt_simple_glyph_calculate_sdf(
     PoneSfntSimpleGlyph *glyph, PoneSfntGlyphPointMapConstants *map_constants,
     PoneSdfData *sdf_data) {
@@ -1479,22 +1529,17 @@ static void pone_sfnt_simple_glyph_calculate_sdf(
             };
             u32 x_min_u32 = (u32)pone_floor(edge_segment_bbox_padded.p_min.x);
             u32 y_min_u32 = (u32)pone_floor(edge_segment_bbox_padded.p_min.y);
-            u32 x_max_u32 =
-                (u32)pone_ceil(edge_segment_bbox_padded.p_max.x -
-                               sdf_data->sdf_bitmap->width * PONE_EPSILON);
-            u32 y_max_u32 =
-                (u32)pone_ceil(edge_segment_bbox_padded.p_max.y -
-                               sdf_data->sdf_bitmap->height * PONE_EPSILON);
-            pone_assert(x_min_u32 >= 0 &&
-                        x_max_u32 <= sdf_data->sdf_bitmap->width);
-            pone_assert(y_min_u32 >= 0 &&
-                        y_max_u32 <= sdf_data->sdf_bitmap->height);
+            u32 x_max_u32 = (u32)pone_ceil(edge_segment_bbox_padded.p_max.x -
+                                           sdf_data->width * PONE_EPSILON);
+            u32 y_max_u32 = (u32)pone_ceil(edge_segment_bbox_padded.p_max.y -
+                                           sdf_data->height * PONE_EPSILON);
+            pone_assert(x_min_u32 >= 0 && x_max_u32 <= sdf_data->width);
+            pone_assert(y_min_u32 >= 0 && y_max_u32 <= sdf_data->height);
 
             for (u32 y = y_min_u32; y < y_max_u32; ++y) {
-                f32 *d_mins_row =
-                    sdf_data->d_mins + (y * sdf_data->sdf_bitmap->width);
-                i8 *delta_windings_row = sdf_data->delta_windings +
-                                         (y * sdf_data->sdf_bitmap->width);
+                f32 *d_mins_row = sdf_data->d_mins + (y * sdf_data->width);
+                i8 *delta_windings_row =
+                    sdf_data->delta_windings + (y * sdf_data->width);
 
                 i8 prev_side = 0;
                 for (u32 x = x_min_u32; x < x_max_u32; ++x) {
@@ -1554,21 +1599,17 @@ static void pone_sfnt_simple_glyph_calculate_sdf(
         };
         u32 x_min_u32 = (u32)pone_floor(edge_segment_bbox_padded.p_min.x);
         u32 y_min_u32 = (u32)pone_floor(edge_segment_bbox_padded.p_min.y);
-        u32 x_max_u32 =
-            (u32)pone_ceil(edge_segment_bbox_padded.p_max.x -
-                           sdf_data->sdf_bitmap->width * PONE_EPSILON);
-        u32 y_max_u32 =
-            (u32)pone_ceil(edge_segment_bbox_padded.p_max.y -
-                           sdf_data->sdf_bitmap->height * PONE_EPSILON);
-        pone_assert(x_min_u32 >= 0 && x_max_u32 <= sdf_data->sdf_bitmap->width);
-        pone_assert(y_min_u32 >= 0 &&
-                    y_max_u32 <= sdf_data->sdf_bitmap->height);
+        u32 x_max_u32 = (u32)pone_ceil(edge_segment_bbox_padded.p_max.x -
+                                       sdf_data->width * PONE_EPSILON);
+        u32 y_max_u32 = (u32)pone_ceil(edge_segment_bbox_padded.p_max.y -
+                                       sdf_data->height * PONE_EPSILON);
+        pone_assert(x_min_u32 >= 0 && x_max_u32 <= sdf_data->width);
+        pone_assert(y_min_u32 >= 0 && y_max_u32 <= sdf_data->height);
 
         for (u32 y = y_min_u32; y < y_max_u32; ++y) {
-            f32 *d_mins_row =
-                sdf_data->d_mins + (y * sdf_data->sdf_bitmap->width);
+            f32 *d_mins_row = sdf_data->d_mins + (y * sdf_data->width);
             i8 *delta_windings_row =
-                sdf_data->delta_windings + (y * sdf_data->sdf_bitmap->width);
+                sdf_data->delta_windings + (y * sdf_data->width);
 
             i8 prev_side = 0;
             for (u32 x = x_min_u32; x < x_max_u32; ++x) {
@@ -1595,15 +1636,13 @@ static void pone_sfnt_simple_glyph_calculate_sdf(
         contour_begin_point_index =
             (usize)glyph->end_points_of_contours[contour_index] + 1;
     }
-    for (u32 y = 0; y < sdf_data->sdf_bitmap->height; ++y) {
+    for (u32 y = 0; y < sdf_data->height; ++y) {
         i8 winding_score = 0;
-        for (u32 x = 0; x < sdf_data->sdf_bitmap->width; ++x) {
+        for (u32 x = 0; x < sdf_data->width; ++x) {
             i8 delta_winding =
-                sdf_data->delta_windings[(y * sdf_data->sdf_bitmap->width) + x];
-            f32 *d_min =
-                &sdf_data->d_mins[(y * sdf_data->sdf_bitmap->width) + x];
-            u32 *sdf_pixel = &sdf_data->sdf_bitmap
-                                  ->buf[(y * sdf_data->sdf_bitmap->width) + x];
+                sdf_data->delta_windings[(y * sdf_data->width) + x];
+            f32 *d_min = &sdf_data->d_mins[(y * sdf_data->width) + x];
+            u32 *sdf_pixel = &sdf_data->sdf_buf[(y * sdf_data->width) + x];
 
             winding_score += delta_winding;
 
@@ -1627,10 +1666,11 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
                                      u32 d_pad, Arena *permanent_arena,
                                      Arena *transient_arena,
                                      PoneTrueTypeSdfAtlas *atlas) {
+#if 0
     atlas->glyph_count = 1;
     u32 char_code = 89;
     u32 *char_codes = &char_code;
-#if 0
+#else
     atlas->glyph_count = 106;
     u32 *char_codes =
         arena_alloc_array(transient_arena, atlas->glyph_count, u32);
@@ -1651,6 +1691,8 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
     char_codes[104] = 0x9ec5; // Ş
     char_codes[105] = 0x9fc5; // ş
 #endif
+    atlas->glyph_rects =
+        arena_alloc_array(permanent_arena, atlas->glyph_count, PoneRectU32);
 
     u32 *glyph_ids =
         arena_alloc_array(transient_arena, atlas->glyph_count, u32);
@@ -1691,45 +1733,95 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
         }
     }
 
-    atlas->sdf_bitmaps = arena_alloc_array(permanent_arena, atlas->glyph_count,
-                                           PoneTrueTypeGlyphSdfBitmap);
     u32 d_max = d_pad;
 
     u32 content_bitmap_size = resolution - d_pad * 2;
     f32 pixels_per_funit = (f32)content_bitmap_size / (f32)font->units_per_em;
 
+    PoneRectPackItem *sdf_bitmap_pack_items = arena_alloc_array(
+        transient_arena, atlas->glyph_count, PoneRectPackItem);
+    usize *pack_item_glyph_indices =
+        arena_alloc_array(transient_arena, atlas->glyph_count, usize);
+    for (usize glyph_index = 0; glyph_index < atlas->glyph_count;
+         glyph_index++) {
+        pack_item_glyph_indices[glyph_index] = glyph_index;
+        sdf_bitmap_pack_items[glyph_index] = {
+            .user_data = (void *)(pack_item_glyph_indices + glyph_index),
+        };
+    }
+
+    PoneRect *glyph_bboxes = arena_alloc_array(transient_arena, atlas->glyph_count, PoneRect);
+    for (usize glyph_index = 0; glyph_index < atlas->glyph_count;
+         ++glyph_index) {
+        u32 glyph_id = glyph_ids[glyph_index];
+        PoneSfntGlyph *glyph = font->glyphs + glyph_id;
+        PoneRect *glyph_bbox = glyph_bboxes + glyph_index;
+
+        pone_sfnt_glyph_bounding_box(font, glyph, glyph_bbox);
+        glyph_bbox->p_min = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox->p_min);
+        glyph_bbox->p_max = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox->p_max);
+        glyph_bbox->p_min.x -= d_pad;
+        glyph_bbox->p_min.y -= d_pad;
+        glyph_bbox->p_max.x += d_pad;
+        glyph_bbox->p_max.y += d_pad;
+
+        u32 glyph_width = (u32)pone_ceil(glyph_bbox->p_max.x - glyph_bbox->p_min.x);
+        u32 glyph_height = (u32)pone_ceil(glyph_bbox->p_max.y - glyph_bbox->p_min.y);
+        sdf_bitmap_pack_items[glyph_index].rect = {
+            .x_min = 0,
+            .y_min = 0,
+            .x_max = glyph_width,
+            .y_max = glyph_height,
+        };
+    }
+    u32 side;
+    b8 packed = pone_rect_pack(sdf_bitmap_pack_items, atlas->glyph_count, 2048,
+                               transient_arena, &side);
+    pone_assert(packed);
+    for (usize rect_pack_item_index = 0;
+         rect_pack_item_index < atlas->glyph_count; rect_pack_item_index++) {
+        PoneRectPackItem *rect_pack_item =
+            sdf_bitmap_pack_items + rect_pack_item_index;
+        usize glyph_index = *(usize *)rect_pack_item->user_data;
+        atlas->glyph_rects[glyph_index] = rect_pack_item->rect;
+    }
+
+    atlas->width = side;
+    atlas->height = side;
+    atlas->buf =
+        arena_alloc_array(permanent_arena, atlas->width * atlas->height, u32);
+    u32 **sdf_bufs =
+        arena_alloc_array(transient_arena, atlas->glyph_count, u32 *);
+    for (usize glyph_index = 0; glyph_index < atlas->glyph_count;
+         glyph_index++) {
+        u32 **sdf_buf = sdf_bufs + glyph_index;
+        PoneRectU32 *glyph_rect = atlas->glyph_rects + glyph_index;
+        u32 glyph_width = pone_rect_u32_width(glyph_rect);
+        u32 glyph_height = pone_rect_u32_height(glyph_rect);
+
+        *sdf_buf = arena_alloc_array(
+            transient_arena, (usize)glyph_width * (usize)glyph_height, u32);
+    }
+
     for (usize glyph_id_index = 0; glyph_id_index < atlas->glyph_count;
          ++glyph_id_index) {
         u32 glyph_id = glyph_ids[glyph_id_index];
-        PoneTrueTypeGlyphSdfBitmap *sdf_bitmap =
-            atlas->sdf_bitmaps + glyph_id_index;
+        PoneRectU32 *glyph_rect = atlas->glyph_rects + glyph_id_index;
+        u32 glyph_width = pone_rect_u32_width(glyph_rect);
+        u32 glyph_height = pone_rect_u32_height(glyph_rect);
         PoneSfntGlyph *glyph = font->glyphs + glyph_id;
 
-        PoneRect glyph_bbox;
-        pone_sfnt_glyph_bbox_rect(&glyph->bbox, &glyph_bbox);
-        PoneRect glyph_bbox_scaled = {
-            .p_min = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox.p_min),
-            .p_max = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox.p_max),
-        };
-        glyph_bbox_scaled.p_min.x -= d_pad;
-        glyph_bbox_scaled.p_min.y -= d_pad;
-        glyph_bbox_scaled.p_max.x += d_pad;
-        glyph_bbox_scaled.p_max.y += d_pad;
-
-        sdf_bitmap->width =
-            (usize)pone_ceil(pone_rect_width(&glyph_bbox_scaled));
-        sdf_bitmap->height =
-            (usize)pone_ceil(pone_rect_height(&glyph_bbox_scaled));
-        sdf_bitmap->buf = arena_alloc_array(
-            permanent_arena, sdf_bitmap->width * sdf_bitmap->height, u32);
         usize transient_arena_offset = transient_arena->offset;
-        f32 *d_mins = arena_alloc_array(
-            transient_arena, sdf_bitmap->width * sdf_bitmap->height, f32);
-        for (usize i = 0; i < sdf_bitmap->height; ++i) {
-            for (usize j = 0; j < sdf_bitmap->width; ++j) {
-                d_mins[(i * sdf_bitmap->width) + j] = -(f32)(d_pad * d_pad);
+        f32 *d_mins =
+            arena_alloc_array(transient_arena, glyph_width * glyph_height, f32);
+        for (usize i = 0; i < glyph_height; ++i) {
+            for (usize j = 0; j < glyph_width; ++j) {
+                d_mins[(i * glyph_width) + j] = -(f32)(d_pad * d_pad);
             }
         }
+        i8 *delta_windings =
+            arena_alloc_array(transient_arena, glyph_width * glyph_height, i8);
+        pone_memset(delta_windings, 0, glyph_width * glyph_height * sizeof(i8));
         PoneRect range_b = {
             .p_min =
                 {
@@ -1738,90 +1830,34 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
                 },
             .p_max =
                 {
-                    .x = (f32)sdf_bitmap->width,
-                    .y = (f32)sdf_bitmap->height,
+                    .x = (f32)glyph_width,
+                    .y = (f32)glyph_height,
                 },
         };
-
-        i8 *delta_windings = arena_alloc_array(
-            transient_arena, sdf_bitmap->width * sdf_bitmap->height, i8);
-        pone_memset(delta_windings, 0,
-                    sdf_bitmap->width * sdf_bitmap->height * sizeof(i8));
+        PoneSdfData sdf_data = {
+            .width = glyph_width,
+            .height = glyph_height,
+            .sdf_buf = sdf_bufs[glyph_id_index],
+            .d_mins = d_mins,
+            .delta_windings = delta_windings,
+            .d_pad = d_pad,
+            .d_max = d_max,
+        };
+        PoneSfntGlyphPointRangeMap range_map = {
+            .scale = pixels_per_funit,
+            .range_a = glyph_bboxes + glyph_id_index,
+            .range_b = &range_b,
+            .invert_y = 1,
+        };
 
         if (glyph->type == PONE_SFNT_GLYPH_TYPE_SIMPLE) {
-            PoneSdfData sdf_data = {
-                .sdf_bitmap = sdf_bitmap,
-                .d_mins = d_mins,
-                .delta_windings = delta_windings,
-                .d_pad = d_pad,
-                .d_max = d_max,
-            };
-            PoneSfntGlyphPointRangeMap range_map = {
-                .scale = pixels_per_funit,
-                .range_a = &glyph_bbox_scaled,
-                .range_b = &range_b,
-                .invert_y = 1,
-            };
             PoneSfntGlyphPointMapConstants map_constants = {
                 .range_map = &range_map,
                 .transform = 0,
             };
-            PoneRect tight_bbox;
-            pone_sfnt_simple_glyph_bounding_box(&glyph->simple, 0, &tight_bbox);
-
-            pone_assert(pone_abs(tight_bbox.p_min.x - glyph_bbox.p_min.x) <
-                        PONE_EPSILON);
-            pone_assert(pone_abs(tight_bbox.p_min.y - glyph_bbox.p_min.y) <
-                        PONE_EPSILON);
-            pone_assert(pone_abs(tight_bbox.p_max.x - glyph_bbox.p_max.x) <
-                        PONE_EPSILON);
-            pone_assert(pone_abs(tight_bbox.p_max.y - glyph_bbox.p_max.y) <
-                        PONE_EPSILON);
             pone_sfnt_simple_glyph_calculate_sdf(&glyph->simple, &map_constants,
                                                  &sdf_data);
         } else {
-            PoneRect tight_bbox = {
-                .p_min =
-                    {
-                        .x = PONE_F32_MAX,
-                        .y = PONE_F32_MAX,
-                    },
-                .p_max =
-                    {
-                        .x = PONE_F32_MIN,
-                        .y = PONE_F32_MIN,
-                    },
-            };
-            for (usize glyph_component_index = 0;
-                 glyph_component_index < glyph->compound.component_glyph_count;
-                 ++glyph_component_index) {
-                PoneSfntComponentGlyph *component_glyph_ref =
-                    glyph->compound.component_glyphs + glyph_component_index;
-                PoneSfntGlyph *component_glyph =
-                    font->glyphs + component_glyph_ref->glyph_index;
-                PoneSfntGlyphPointTransformation transform = {
-                    .offset = component_glyph_ref->offset,
-                    .scale = component_glyph_ref->transformation};
-                PoneSfntGlyphPointMapConstants map_constants = {
-                    .range_map = 0,
-                    .transform = &transform,
-                };
-                pone_assert(component_glyph->type ==
-                            PONE_SFNT_GLYPH_TYPE_SIMPLE);
-
-                PoneRect tight_component_bbox;
-                pone_sfnt_simple_glyph_bounding_box(&component_glyph->simple,
-                                                    &map_constants,
-                                                    &tight_component_bbox);
-                tight_bbox.p_min.x =
-                    PONE_MIN(tight_bbox.p_min.x, tight_component_bbox.p_min.x);
-                tight_bbox.p_min.y =
-                    PONE_MIN(tight_bbox.p_min.y, tight_component_bbox.p_min.y);
-                tight_bbox.p_max.x =
-                    PONE_MAX(tight_bbox.p_max.x, tight_component_bbox.p_max.x);
-                tight_bbox.p_max.y =
-                    PONE_MAX(tight_bbox.p_max.y, tight_component_bbox.p_max.y);
-            }
             for (usize glyph_component_index = 0;
                  glyph_component_index < glyph->compound.component_glyph_count;
                  ++glyph_component_index) {
@@ -1831,38 +1867,33 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
                     font->glyphs + component_glyph_ref->glyph_index;
                 pone_assert(component_glyph->type ==
                             PONE_SFNT_GLYPH_TYPE_SIMPLE);
-                PoneSdfData sdf_data = {
-                    .sdf_bitmap = sdf_bitmap,
-                    .d_mins = d_mins,
-                    .delta_windings = delta_windings,
-                    .d_pad = d_pad,
-                    .d_max = d_max,
-                };
                 PoneSfntGlyphPointTransformation transform = {
                     .offset = component_glyph_ref->offset,
                     .scale = component_glyph_ref->transformation};
-                PoneSfntGlyphPointRangeMap range_map = {
-                    .scale = pixels_per_funit,
-                    .range_a = &glyph_bbox_scaled,
-                    .range_b = &range_b,
-                    .invert_y = 1,
-                };
                 PoneSfntGlyphPointMapConstants map_constants = {
                     .range_map = &range_map,
                     .transform = &transform,
                 };
-                pone_assert(pone_abs(tight_bbox.p_min.x - glyph_bbox.p_min.x) <
-                            PONE_EPSILON);
-                pone_assert(pone_abs(tight_bbox.p_min.y - glyph_bbox.p_min.y) <
-                            PONE_EPSILON);
-                pone_assert(pone_abs(tight_bbox.p_max.x - glyph_bbox.p_max.x) <
-                            PONE_EPSILON);
-                pone_assert(pone_abs(tight_bbox.p_max.y - glyph_bbox.p_max.y) <
-                            PONE_EPSILON);
                 pone_sfnt_simple_glyph_calculate_sdf(&component_glyph->simple,
                                                      &map_constants, &sdf_data);
             }
         }
         transient_arena->offset = transient_arena_offset;
+    }
+
+    for (usize glyph_index = 0; glyph_index < atlas->glyph_count;
+         glyph_index++) {
+        PoneRectU32 *glyph_rect = atlas->glyph_rects + glyph_index;
+        u32 glyph_width = pone_rect_u32_width(glyph_rect);
+        u32 glyph_height = pone_rect_u32_height(glyph_rect);
+        u32 *sdf_buf = sdf_bufs[glyph_index];
+
+        for (usize y = 0; y < glyph_height; y++) {
+            pone_memcpy((void *)(atlas->buf +
+                                 ((glyph_rect->y_min + y) * atlas->width) +
+                                 glyph_rect->x_min),
+                        (void *)(sdf_buf + (y * glyph_width)),
+                        glyph_width * sizeof(u32));
+        }
     }
 }

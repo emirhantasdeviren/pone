@@ -83,15 +83,12 @@ struct PoneTrueTypeFont {
     PoneSfntCmapFormat12 format_12;
 };
 
-struct PoneTrueTypeGlyphSdfBitmap {
+struct PoneTrueTypeSdfAtlas {
+    u32 *buf;
     usize width;
     usize height;
-    u32 *buf;
-};
-
-struct PoneTrueTypeSdfAtlas {
     usize glyph_count;
-    PoneTrueTypeGlyphSdfBitmap *sdf_bitmaps;
+    PoneRectU32 *glyph_rects;
 };
 
 PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena);

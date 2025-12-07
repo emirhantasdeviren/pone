@@ -15,6 +15,7 @@ clang -Wall -Wno-writable-strings -g -O0 -c -I..\include  -o pone_vec2.obj ..\sr
 clang -Wall -Wno-writable-strings -g -O0 -c -I..\include  -o pone_rect.obj ..\src\pone_rect.cpp
 clang -Wall -Wno-writable-strings -g -O0 -c -I..\include  -o pone_atomic.obj ..\src\pone_atomic.cpp
 clang -Wall -Wno-writable-strings -g -O0 -c -I..\include  -o pone_work_queue.obj ..\src\pone_work_queue.cpp
+clang -Wall -Wno-writable-strings -g -O0 -c -I..\include  -o pone_rect_pack.obj ..\src\pone_rect_pack.cpp
 REM clang -Wall -g -O0 -c -I..\include -o imgui.obj ..\src\imgui.cpp
 REM clang -Wall -g -O0 -c -I..\include -o imgui_demo.obj ..\src\imgui_demo.cpp
 REM clang -Wall -g -O0 -c -I..\include -o imgui_draw.obj ..\src\imgui_draw.cpp
@@ -22,5 +23,5 @@ REM clang -Wall -g -O0 -c -I..\include -o imgui_tables.obj ..\src\imgui_tables.c
 REM clang -Wall -g -O0 -c -I..\include -o imgui_widgets.obj ..\src\imgui_widgets.cpp
 REM clang -Wall -g -O0 -c -I..\include -DIMGUI_IMPL_VULKAN_NO_PROTOTYPES -o imgui_impl_vulkan.obj ..\src\imgui_impl_vulkan.cpp
 REM clang -Wall -g -O0 -c -I..\include -o imgui_impl_win32.obj ..\src\imgui_impl_win32.cpp
-clang -Wall -Wno-writable-strings -g -O0 -luser32 -lGdi32 -lWinmm -lSynchronization -o pone.exe imgui.obj imgui_demo.obj imgui_draw.obj imgui_tables.obj imgui_widgets.obj imgui_impl_vulkan.obj imgui_impl_win32.obj pone_arena.obj pone_json.obj pone_memory.obj pone_string.obj pone_gltf.obj pone_vulkan.obj pone_truetype.obj pone_math.obj pone_vec2.obj pone_rect.obj pone_atomic.obj pone_work_queue.obj main.obj
+clang -Wall -Wno-writable-strings -g -O0 -luser32 -lGdi32 -lWinmm -lSynchronization -o pone.exe imgui.obj imgui_demo.obj imgui_draw.obj imgui_tables.obj imgui_widgets.obj imgui_impl_vulkan.obj imgui_impl_win32.obj pone_arena.obj pone_json.obj pone_memory.obj pone_string.obj pone_gltf.obj pone_vulkan.obj pone_truetype.obj pone_math.obj pone_vec2.obj pone_rect.obj pone_atomic.obj pone_work_queue.obj pone_rect_pack.obj main.obj
 popd

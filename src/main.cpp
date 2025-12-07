@@ -844,8 +844,8 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
             pone_truetype_font_generate_sdf(font, sdf_size, sdf_pad,
                                             &permanent_memory,
                                             &transient_memory, &sdf_atlas);
-            usize pgm_width = sdf_atlas.sdf_bitmaps[0].width;
-            usize pgm_height = sdf_atlas.sdf_bitmaps[0].height;
+            usize pgm_width = sdf_atlas.width;
+            usize pgm_height = sdf_atlas.height;
 
             HANDLE pgm_file_handle =
                 CreateFileA("sdf_output.pgm", GENERIC_WRITE, FILE_SHARE_WRITE,
@@ -858,10 +858,9 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
             WriteFile(pgm_file_handle, pgm_header, pgm_header_len, 0, 0);
             transient_memory.offset = pgm_header_scratch_offset;
 
-            PoneTrueTypeGlyphSdfBitmap *sdf_bitmap = sdf_atlas.sdf_bitmaps;
             for (usize pgm_y = 0; pgm_y < pgm_height; ++pgm_y) {
                 for (usize pgm_x = 0; pgm_x < pgm_width; ++pgm_x) {
-                    u32 pixel = sdf_bitmap->buf[pgm_y * pgm_width + pgm_x];
+                    u32 pixel = sdf_atlas.buf[pgm_y * pgm_width + pgm_x];
                     u32 gray_value = (pixel & 0xFF000000) >> 24;
 
                     usize scratch_offset = transient_memory.offset;
