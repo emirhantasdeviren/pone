@@ -1,12 +1,11 @@
 #include "pone_arena.h"
 
 #include "pone_assert.h"
-#include "pone_platform.h"
 #include "pone_memory.h"
+#include "pone_platform.h"
 
-#include <stdio.h>
 #include <stddef.h>
-
+#include <stdio.h>
 
 void arena_init(Arena *arena, void *base, usize capacity) {
     arena->base = base;
@@ -131,4 +130,38 @@ i32 arena_sprintf(Arena *arena, char **s, const char *fmt, ...) {
     va_end(args);
 
     return n;
+}
+
+static inline b8 _pone_is_power_of_two(usize n) {
+    return (n != 0 && (n & (n - 1)) == 0);
+}
+
+static usize _pone_align_address(usize addr, usize align) {
+    pone_assert(_pone_is_power_of_two(align)); 
+    addr += (align - 1) & -addr;
+
+    return addr;
+}
+
+static void _pone_arena_create_sub_arena_aligned(Arena *arena, usize capacity,
+                                                 Arena *sub_arena,
+                                                 usize align) {
+    usize header_addr = _pone_align_address((usize)arena->base + arena->offset, align);
+    usize base_addr = _pone_align_address(header_addr + sizeof(AllocationHeader), align);
+
+    pone_assert(base_addr + capacity <= (usize)arena->base + arena->capacity);
+
+    ((AllocationHeader *)header_addr)->size = capacity;
+    arena->offset = (base_addr + capacity) - (usize)arena->base;
+    *sub_arena = (Arena){
+        .base = (void *)base_addr,
+        .offset = 0,
+        .capacity = capacity,
+    };
+}
+
+void pone_arena_create_sub_arena(Arena *arena, usize capacity,
+                                 Arena *sub_arena) {
+    _pone_arena_create_sub_arena_aligned(arena, capacity, sub_arena,
+                                         alignof(max_align_t));
 }

@@ -5,8 +5,8 @@
 #include "pone_string.h"
 
 PoneJsonValue *pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena);
-void _pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena,
-                                    PoneJsonValue *value);
+static void _pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena,
+                                           PoneJsonValue *value);
 
 static u8 pone_json_scanner_peek(PoneJsonScanner *s) {
     return s->input.buf[s->cursor];
@@ -251,8 +251,8 @@ PoneJsonValue *pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena) {
 //     return 0;
 // }
 
-void _pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena,
-                                    PoneJsonValue *value) {
+static void _pone_json_scanner_parse_value(PoneJsonScanner *s, Arena *arena,
+                                           PoneJsonValue *value) {
     PONE_ASSERT(!pone_json_scanner_is_eof(s));
     b8 b = pone_json_scanner_peek(s);
     switch (b) {

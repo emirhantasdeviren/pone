@@ -1,6 +1,6 @@
 [
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -10,13 +10,13 @@
             "-O0",
             "-c",
             "-o",
-            "main.obj",
-            "src\\main.cpp"
+            "build/pone_platform.o",
+            "src/pone_platform_linux.cpp"
         ],
-        "file": "src\\main.cpp"
+        "file": "src/pone_platform_linux.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -26,13 +26,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_arena.obj",
-            "src\\pone_arena.cpp"
+            "build/main.o",
+            "src/main.cpp"
         ],
-        "file": "src\\pone_arena.cpp"
+        "file": "src/main.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -42,13 +42,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_json.obj",
-            "src\\pone_json.cpp"
+            "build/pone_arena.o",
+            "src/pone_arena.cpp"
         ],
-        "file": "src\\pone_json.cpp"
+        "file": "src/pone_arena.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -58,13 +58,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_memory.obj",
-            "src\\pone_memory.cpp"
+            "build/pone_json.o",
+            "src/pone_json.cpp"
         ],
-        "file": "src\\pone_memory.cpp"
+        "file": "src/pone_json.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -74,13 +74,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_string.obj",
-            "src\\pone_string.cpp"
+            "build/pone_memory.o",
+            "src/pone_memory.cpp"
         ],
-        "file": "src\\pone_string.cpp"
+        "file": "src/pone_memory.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -90,13 +90,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_gltf.obj",
-            "src\\pone_gltf.cpp"
+            "build/pone_string.o",
+            "src/pone_string.cpp"
         ],
-        "file": "src\\pone_gltf.cpp"
+        "file": "src/pone_string.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -106,13 +106,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_vulkan.obj",
-            "src\\pone_vulkan.cpp"
+            "build/pone_gltf.o",
+            "src/pone_gltf.cpp"
         ],
-        "file": "src\\pone_vulkan.cpp"
+        "file": "src/pone_gltf.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -122,13 +122,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_truetype.obj",
-            "src\\pone_truetype.cpp"
+            "build/pone_vulkan.o",
+            "src/pone_vulkan.cpp"
         ],
-        "file": "src\\pone_truetype.cpp"
+        "file": "src/pone_vulkan.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -138,13 +138,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_math.obj",
-            "src\\pone_math.cpp"
+            "build/pone_truetype.o",
+            "src/pone_truetype.cpp"
         ],
-        "file": "src\\pone_math.cpp"
+        "file": "src/pone_truetype.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -154,13 +154,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_vec2.obj",
-            "src\\pone_vec2.cpp"
+            "build/pone_math.o",
+            "src/pone_math.cpp"
         ],
-        "file": "src\\pone_vec2.cpp"
+        "file": "src/pone_math.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -170,13 +170,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_rect.obj",
-            "src\\pone_rect.cpp"
+            "build/pone_vec2.o",
+            "src/pone_vec2.cpp"
         ],
-        "file": "src\\pone_rect.cpp"
+        "file": "src/pone_vec2.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -186,13 +186,13 @@
             "-O0",
             "-c",
             "-o",
-            "pone_atomic.obj",
-            "src\\pone_atomic.cpp"
+            "build/pone_rect.o",
+            "src/pone_rect.cpp"
         ],
-        "file": "src\\pone_atomic.cpp"
+        "file": "src/pone_rect.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -202,13 +202,29 @@
             "-O0",
             "-c",
             "-o",
-            "pone_work_queue.obj",
-            "src\\pone_work_queue.cpp"
+            "build/pone_work_queue.o",
+            "src/pone_work_queue.cpp"
         ],
-        "file": "src\\pone_work_queue.cpp"
+        "file": "src/pone_work_queue.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
+        "arguments": [
+            "clang",
+            "-Wall",
+            "-Wno-writable-strings",
+            "-Iinclude",
+            "-g",
+            "-O0",
+            "-c",
+            "-o",
+            "build/pone_rect_pack.o",
+            "src/pone_rect_pack.cpp"
+        ],
+        "file": "src/pone_rect_pack.cpp"
+    },
+    {
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -217,13 +233,13 @@
             "-O0",
             "-c",
             "-o",
-            "imgui.obj",
-            "src\\imgui.cpp"
+            "imgui.o",
+            "src/imgui.cpp"
         ],
-        "file": "src\\imgui.cpp"
+        "file": "src/imgui.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -232,13 +248,13 @@
             "-O0",
             "-c",
             "-o",
-            "imgui_demo.obj",
-            "src\\imgui_demo.cpp"
+            "build/imgui_demo.o",
+            "src/imgui_demo.cpp"
         ],
-        "file": "src\\imgui_demo.cpp"
+        "file": "src/imgui_demo.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -247,13 +263,13 @@
             "-O0",
             "-c",
             "-o",
-            "imgui_draw.obj",
-            "src\\imgui_draw.cpp"
+            "build/imgui_draw.o",
+            "src/imgui_draw.cpp"
         ],
-        "file": "src\\imgui_draw.cpp"
+        "file": "src/imgui_draw.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -262,13 +278,13 @@
             "-O0",
             "-c",
             "-o",
-            "imgui_tables.obj",
-            "src\\imgui_tables.cpp"
+            "build/imgui_tables.o",
+            "src/imgui_tables.cpp"
         ],
-        "file": "src\\imgui_tables.cpp"
+        "file": "src/imgui_tables.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -277,13 +293,13 @@
             "-O0",
             "-c",
             "-o",
-            "imgui_widgets.obj",
-            "src\\imgui_widgets.cpp"
+            "build/imgui_widgets.o",
+            "src/imgui_widgets.cpp"
         ],
-        "file": "src\\imgui_widgets.cpp"
+        "file": "src/imgui_widgets.cpp"
     },
     {
-        "directory": "W:\\pone",
+        "directory": "/home/emirhantasdeviren/src/pone",
         "arguments": [
             "clang",
             "-Wall",
@@ -293,38 +309,9 @@
             "-O0",
             "-c",
             "-o",
-            "imgui_impl_vulkan.obj",
-            "src\\imgui_impl_vulkan.cpp"
+            "build/imgui_impl_vulkan.o",
+            "src/imgui_impl_vulkan.cpp"
         ],
-        "file": "src\\imgui_impl_vulkan.cpp"
+        "file": "src/imgui_impl_vulkan.cpp"
     },
-    {
-        "directory": "W:\\pone",
-        "arguments": [
-            "clang",
-            "-Wall",
-            "-Iinclude",
-            "-g",
-            "-O0",
-            "-c",
-            "-o",
-            "imgui_impl_win32.obj",
-            "src\\imgui_impl_win32.cpp"
-        ],
-        "file": "src\\imgui_impl_win32.cpp"
-    },
-    {
-        "directory": "W:\\pone",
-        "arguments": [
-            "clang",
-            "-Wall",
-            "-Wno-writable-strings",
-            "-g",
-            "-O0",
-            "-o",
-            "pone.exe",
-            "main.obj"
-        ],
-        "file": "src\\main.cpp"
-    }
 ]
