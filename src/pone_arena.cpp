@@ -163,3 +163,19 @@ void pone_arena_create_sub_arena(Arena *arena, usize capacity,
     _pone_arena_create_sub_arena_aligned(arena, capacity, sub_arena,
                                          alignof(max_align_t));
 }
+
+PoneArenaTmp *pone_arena_tmp_begin(Arena *arena) {
+    usize offset = arena->offset;
+    PoneArenaTmp *tmp = (PoneArenaTmp *)arena_alloc(arena, sizeof(PoneArenaTmp));
+
+    *tmp = (PoneArenaTmp) {
+        .offset = offset,
+        .arena = arena,
+    };
+
+    return tmp;
+}
+
+void pone_arena_tmp_end(PoneArenaTmp *tmp) {
+    tmp->arena->offset = tmp->offset;
+}

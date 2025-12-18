@@ -27,6 +27,14 @@ i32 arena_sprintf(Arena *arena, char **s, const char *fmt, ...);
 void pone_arena_create_sub_arena(Arena *arena, usize capacity,
                                  Arena *sub_arena);
 
+struct PoneArenaTmp {
+    usize offset;
+    Arena *arena;
+};
+
+PoneArenaTmp *pone_arena_tmp_begin(Arena *arena);
+void pone_arena_tmp_end(PoneArenaTmp *tmp);
+
 #define arena_alloc_array(arena, count, type)                                  \
     (type *)arena_alloc(arena, (count) * sizeof(type))
 
