@@ -747,7 +747,7 @@ static void pone_renderer_vk_resize_swapchain(
         .clipped = 1,
     };
 
-    usize arena_tmp_begin = arena->offset;
+    PoneArenaTmp *tmp_arena = pone_arena_tmp_begin(arena);
     PoneVkSwapchainKhr *new_swapchain =
         pone_vk_create_swapchain_khr(device, &swapchain_create_info, arena);
     u32 new_swapchain_image_count;
@@ -755,7 +755,7 @@ static void pone_renderer_vk_resize_swapchain(
                                      &new_swapchain_image_count, arena);
     pone_assert(new_swapchain_image_count == swapchain_image_count);
     for (usize i = 0; i < swapchain_image_count; i++) {
-        usize arena_tmp_begin_2 = arena->offset;
+        PoneArenaTmp *tmp_arena_2 = pone_arena_tmp_begin(arena);
         VkImageViewCreateInfo swapchain_image_view_create_info = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .pNext = 0,
@@ -781,13 +781,12 @@ static void pone_renderer_vk_resize_swapchain(
         swapchain_image_views[i] = *pone_vk_create_image_view(
             device, &swapchain_image_view_create_info, arena);
 
-        arena->offset = arena_tmp_begin_2;
-
+        pone_arena_tmp_end(tmp_arena_2);
         swapchain->images[i] = new_swapchain->images[i];
     }
 
     swapchain->handle = new_swapchain->handle;
-    arena->offset = arena_tmp_begin;
+    pone_arena_tmp_end(tmp_arena);
 }
 
 int main(void) {
@@ -843,8 +842,8 @@ int main(void) {
     };
     u32 required_extension_count = sizeof(required_extension_names_c_str) /
                                    sizeof(required_extension_names_c_str[0]);
-    PoneString *required_extension_names =
-        arena_alloc_array(&permanent_arena, required_extension_count, PoneString);
+    PoneString *required_extension_names = arena_alloc_array(
+        &permanent_arena, required_extension_count, PoneString);
     for (usize i = 0; i < required_extension_count; i++) {
         pone_string_from_cstr(required_extension_names_c_str[i],
                               required_extension_names + i);
@@ -991,8 +990,8 @@ int main(void) {
             .command_buffer_count = 1,
         };
 
-        pone_vk_allocate_command_buffers(device, &allocate_info, &permanent_arena,
-                                         command_buffer);
+        pone_vk_allocate_command_buffers(device, &allocate_info,
+                                         &permanent_arena, command_buffer);
 
         VkFenceCreateInfo fence_create_info = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -1013,10 +1012,8 @@ int main(void) {
     }
 
     usize frame_index = 0;
-    u64 t0 = pone_platform_get_time();
+    // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
-        u64 t1 = pone_platform_get_time();
-        printf("phase 1: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
         if (wayland.resize_requested && wayland.ready_to_resize) {
             PoneVkResizeSwapchainInfo resize_info = {
                 .surface = surface,
@@ -1124,13 +1121,8 @@ int main(void) {
             .signalSemaphoreInfoCount = 1,
             .pSignalSemaphoreInfos = &signal_semaphore_submit_info,
         };
-        {
-            u64 t0 = pone_platform_get_time();
-            pone_vk_queue_submit_2(queue, 1, &submit_info,
-                                   frame_data->render_fence.handle);
-            u64 t1 = pone_platform_get_time();
-            printf("queue submit: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
-        }
+        pone_vk_queue_submit_2(queue, 1, &submit_info,
+                               frame_data->render_fence.handle);
 
         VkPresentInfoKHR present_info = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -1147,11 +1139,8 @@ int main(void) {
             wayland.resize_requested = 1;
             continue;
         }
-        t1 = pone_platform_get_time();
-        printf("total: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
 
         frame_index++;
-        t0 = pone_platform_get_time();
     }
 
     return 0;
