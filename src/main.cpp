@@ -692,10 +692,11 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 };
 
 struct PoneFrameData {
-    PoneVkCommandPool command_pool;
-    PoneVkCommandBuffer command_buffer;
-    PoneVkFence frame_fence;
-    PoneVkSemaphore acquire_semaphore;
+    u32 frame_in_flight_count;
+    PoneVkCommandPool *command_pools;
+    PoneVkCommandBuffer *command_buffers;
+    PoneVkFence *frame_fences;
+    PoneVkSemaphore *acquire_semaphores;
 };
 
 static void pone_renderer_vk_destroy_swapchain(
@@ -974,15 +975,26 @@ int main(void) {
     PoneVkQueue *queue =
         pone_vk_get_device_queue(device, &device_queue_info, &permanent_arena);
 
-    usize frame_overlap = 2;
-    PoneFrameData *frame_datas =
-        arena_alloc_array(&permanent_arena, frame_overlap, PoneFrameData);
+    PoneFrameData frame_data = {
+        .frame_in_flight_count = 2,
+        .command_pools = arena_alloc_array(&permanent_arena,
+                                           frame_data.frame_in_flight_count,
+                                           PoneVkCommandPool),
+        .command_buffers = arena_alloc_array(&permanent_arena,
+                                             frame_data.frame_in_flight_count,
+                                             PoneVkCommandBuffer),
+        .frame_fences = arena_alloc_array(
+            &permanent_arena, frame_data.frame_in_flight_count, PoneVkFence),
+        .acquire_semaphores = arena_alloc_array(
+            &permanent_arena, frame_data.frame_in_flight_count,
+            PoneVkSemaphore),
+    };
 
-    for (usize i = 0; i < frame_overlap; i++) {
-        PoneVkCommandPool *command_pool = &frame_datas[i].command_pool;
-        PoneVkCommandBuffer *command_buffer = &frame_datas[i].command_buffer;
-        PoneVkFence *frame_fence = &frame_datas[i].frame_fence;
-        PoneVkSemaphore *acquire_semaphore = &frame_datas[i].acquire_semaphore;
+    for (usize i = 0; i < frame_data.frame_in_flight_count; i++) {
+        PoneVkCommandPool *command_pool = frame_data.command_pools + i;
+        PoneVkCommandBuffer *command_buffer = frame_data.command_buffers + i;
+        PoneVkFence *frame_fence = frame_data.frame_fences + i;
+        PoneVkSemaphore *acquire_semaphore = frame_data.acquire_semaphores + i;
 
         VkCommandPoolCreateInfo command_pool_create_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -1048,18 +1060,21 @@ int main(void) {
             pone_assert(0);
         }
 
-        PoneFrameData *frame_data = frame_datas + (frame_index % frame_overlap);
+        PoneVkFence *frame_fence = frame_data.frame_fences + frame_index;
+        PoneVkSemaphore *acquire_semaphore =
+            frame_data.acquire_semaphores + frame_index;
+        PoneVkCommandBuffer *command_buffer =
+            frame_data.command_buffers + frame_index;
 
-        pone_vk_wait_for_fences(device, 1, &frame_data->frame_fence, 1,
-                                1000000000, &permanent_arena);
-        pone_vk_reset_fences(device, 1, &frame_data->frame_fence,
-                             &permanent_arena);
+        pone_vk_wait_for_fences(device, 1, frame_fence, 1, 1000000000,
+                                &permanent_arena);
+        pone_vk_reset_fences(device, 1, frame_fence, &permanent_arena);
 
         u32 swapchain_image_index;
         PoneVkAcquireNextImageInfoKhr acquire_swapchain_image_info = {
             .swapchain = swapchain,
             .timeout = 1000000000,
-            .semaphore = &frame_data->acquire_semaphore,
+            .semaphore = acquire_semaphore,
             .fence = 0,
         };
         VkResult acquire_ret = pone_vk_acquire_next_image_khr(
@@ -1072,9 +1087,8 @@ int main(void) {
             submit_semaphores + swapchain_image_index;
 
         pone_vk_begin_command_buffer(
-            &frame_data->command_buffer,
-            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        transition_image(&frame_data->command_buffer,
+            command_buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        transition_image(command_buffer,
                          swapchain->images[swapchain_image_index],
                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
@@ -1086,27 +1100,25 @@ int main(void) {
             .baseArrayLayer = 0,
             .layerCount = VK_REMAINING_ARRAY_LAYERS,
         };
-        pone_vk_cmd_clear_color_image(&frame_data->command_buffer,
-                                      swapchain->images[swapchain_image_index],
-                                      VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1,
-                                      &clear_range);
-        transition_image(&frame_data->command_buffer,
-                         swapchain->images[swapchain_image_index],
-                         VK_IMAGE_LAYOUT_GENERAL,
-                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        pone_vk_end_command_buffer(&frame_data->command_buffer);
+        pone_vk_cmd_clear_color_image(
+            command_buffer, swapchain->images[swapchain_image_index],
+            VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+        transition_image(
+            command_buffer, swapchain->images[swapchain_image_index],
+            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        pone_vk_end_command_buffer(command_buffer);
 
         VkCommandBufferSubmitInfo command_buffer_submit_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
             .pNext = 0,
-            .commandBuffer = frame_data->command_buffer.handle,
+            .commandBuffer = command_buffer->handle,
             .deviceMask = 0,
         };
 
         VkSemaphoreSubmitInfo wait_semaphore_submit_info = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .pNext = 0,
-            .semaphore = frame_data->acquire_semaphore.handle,
+            .semaphore = acquire_semaphore->handle,
             .value = 1,
             .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
             .deviceIndex = 0,
@@ -1130,8 +1142,7 @@ int main(void) {
             .signalSemaphoreInfoCount = 1,
             .pSignalSemaphoreInfos = &signal_semaphore_submit_info,
         };
-        pone_vk_queue_submit_2(queue, 1, &submit_info,
-                               frame_data->frame_fence.handle);
+        pone_vk_queue_submit_2(queue, 1, &submit_info, frame_fence->handle);
 
         VkPresentInfoKHR present_info = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -1149,7 +1160,7 @@ int main(void) {
             continue;
         }
 
-        frame_index++;
+        frame_index = (frame_index + 1) % frame_data.frame_in_flight_count;
     }
 
     return 0;
