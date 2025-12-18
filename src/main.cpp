@@ -791,14 +791,19 @@ static void pone_renderer_vk_resize_swapchain(
 }
 
 int main(void) {
-    Arena scratch_arena;
-    scratch_arena.base = (void *)(usize)TERABYTES((usize)2);
-    scratch_arena.offset = 0;
-    scratch_arena.capacity = GIGABYTES((usize)2);
-    scratch_arena.base =
-        mmap(scratch_arena.base, scratch_arena.capacity, PROT_READ | PROT_WRITE,
+    Arena global_arena;
+    global_arena.base = (void *)(usize)TERABYTES((usize)2);
+    global_arena.offset = 0;
+    global_arena.capacity = GIGABYTES((usize)2);
+    global_arena.base =
+        mmap(global_arena.base, global_arena.capacity, PROT_READ | PROT_WRITE,
              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    pone_assert(scratch_arena.base != MAP_FAILED);
+    pone_assert(global_arena.base != MAP_FAILED);
+
+    Arena permanent_arena;
+    pone_arena_create_sub_arena(&global_arena, GIGABYTES(1), &permanent_arena);
+    Arena scratch_arena;
+    pone_arena_create_sub_arena(&global_arena, GIGABYTES(1), &scratch_arena);
 
     PoneWayland wayland = {
         .width = 960,
@@ -824,9 +829,9 @@ int main(void) {
     xdg_toplevel_set_title(wayland.xdg_toplevel, "Pone Renderer");
     wl_surface_commit(wayland.surface);
 
-    PoneVkInstance *instance = pone_vk_create_instance(&scratch_arena);
+    PoneVkInstance *instance = pone_vk_create_instance(&permanent_arena);
     PoneVkSurface *surface = pone_vk_create_wayland_surface_khr(
-        instance, wayland.display, wayland.surface, &scratch_arena);
+        instance, wayland.display, wayland.surface, &permanent_arena);
     PoneVkPhysicalDeviceFeatures physical_device_features = {
         .buffer_device_address = 1,
         .descriptor_indexing = 1,
@@ -839,7 +844,7 @@ int main(void) {
     u32 required_extension_count = sizeof(required_extension_names_c_str) /
                                    sizeof(required_extension_names_c_str[0]);
     PoneString *required_extension_names =
-        arena_alloc_array(&scratch_arena, required_extension_count, PoneString);
+        arena_alloc_array(&permanent_arena, required_extension_count, PoneString);
     for (usize i = 0; i < required_extension_count; i++) {
         pone_string_from_cstr(required_extension_names_c_str[i],
                               required_extension_names + i);
@@ -861,7 +866,7 @@ int main(void) {
     u32 queue_family_index;
     PoneVkPhysicalDevice *physical_device =
         pone_vk_select_optimal_physical_device(
-            &physical_device_query, &scratch_arena, &queue_family_index);
+            &physical_device_query, &permanent_arena, &queue_family_index);
     VkSurfaceCapabilitiesKHR surface_capabilities;
     pone_vk_physical_device_get_surface_capabilities(physical_device, surface,
                                                      &surface_capabilities);
@@ -895,7 +900,7 @@ int main(void) {
         .features = &physical_device_features,
     };
     PoneVkDevice *device = pone_vk_create_device(
-        physical_device, &device_create_info, &scratch_arena);
+        physical_device, &device_create_info, &permanent_arena);
     PoneVkSwapchainCreateInfoKhr swapchain_create_info = {
         .surface = surface,
         .min_image_count = surface_capabilities.minImageCount,
@@ -914,14 +919,14 @@ int main(void) {
         .clipped = 1,
     };
     PoneVkSwapchainKhr *swapchain = pone_vk_create_swapchain_khr(
-        device, &swapchain_create_info, &scratch_arena);
+        device, &swapchain_create_info, &permanent_arena);
     u32 swapchain_image_count;
     pone_vk_get_swapchain_images_khr(device, swapchain, &swapchain_image_count,
-                                     &scratch_arena);
+                                     &permanent_arena);
     PoneVkImageView *swapchain_image_views = arena_alloc_array(
-        &scratch_arena, swapchain_image_count, PoneVkImageView);
+        &permanent_arena, swapchain_image_count, PoneVkImageView);
     for (usize i = 0; i < swapchain_image_count; i++) {
-        usize arena_tmp_begin = scratch_arena.offset;
+        usize arena_tmp_begin = permanent_arena.offset;
 
         VkImageViewCreateInfo swapchain_image_view_create_info = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -946,9 +951,9 @@ int main(void) {
             }};
 
         swapchain_image_views[i] = *pone_vk_create_image_view(
-            device, &swapchain_image_view_create_info, &scratch_arena);
+            device, &swapchain_image_view_create_info, &permanent_arena);
 
-        scratch_arena.offset = arena_tmp_begin;
+        permanent_arena.offset = arena_tmp_begin;
     }
     VkDeviceQueueInfo2 device_queue_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
@@ -958,11 +963,11 @@ int main(void) {
         .queueIndex = 0,
     };
     PoneVkQueue *queue =
-        pone_vk_get_device_queue(device, &device_queue_info, &scratch_arena);
+        pone_vk_get_device_queue(device, &device_queue_info, &permanent_arena);
 
     usize frame_overlap = 2;
     PoneFrameData *frame_datas =
-        arena_alloc_array(&scratch_arena, frame_overlap, PoneFrameData);
+        arena_alloc_array(&permanent_arena, frame_overlap, PoneFrameData);
 
     for (usize i = 0; i < frame_overlap; i++) {
         PoneVkCommandPool *command_pool = &frame_datas[i].command_pool;
@@ -986,7 +991,7 @@ int main(void) {
             .command_buffer_count = 1,
         };
 
-        pone_vk_allocate_command_buffers(device, &allocate_info, &scratch_arena,
+        pone_vk_allocate_command_buffers(device, &allocate_info, &permanent_arena,
                                          command_buffer);
 
         VkFenceCreateInfo fence_create_info = {
@@ -1027,7 +1032,7 @@ int main(void) {
 
             pone_renderer_vk_resize_swapchain(
                 device, swapchain, swapchain_image_count, swapchain_image_views,
-                &resize_info, &scratch_arena);
+                &resize_info, &permanent_arena);
 
             wl_surface_commit(wayland.surface);
         } else if (wayland.resize_requested) {
@@ -1037,9 +1042,9 @@ int main(void) {
         PoneFrameData *frame_data = frame_datas + (frame_index % frame_overlap);
 
         pone_vk_wait_for_fences(device, 1, &frame_data->render_fence, 1,
-                                1000000000, &scratch_arena);
+                                1000000000, &permanent_arena);
         pone_vk_reset_fences(device, 1, &frame_data->render_fence,
-                             &scratch_arena);
+                             &permanent_arena);
 
         u32 swapchain_image_index;
         PoneVkAcquireNextImageInfoKhr acquire_swapchain_image_info = {
