@@ -694,9 +694,8 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 struct PoneFrameData {
     PoneVkCommandPool command_pool;
     PoneVkCommandBuffer command_buffer;
-    PoneVkFence render_fence;
-    PoneVkSemaphore swapchain_semaphore;
-    PoneVkSemaphore render_semaphore;
+    PoneVkFence frame_fence;
+    PoneVkSemaphore acquire_semaphore;
 };
 
 static void pone_renderer_vk_destroy_swapchain(
@@ -924,8 +923,11 @@ int main(void) {
                                      &permanent_arena);
     PoneVkImageView *swapchain_image_views = arena_alloc_array(
         &permanent_arena, swapchain_image_count, PoneVkImageView);
+    PoneVkSemaphore *submit_semaphores = arena_alloc_array(
+        &permanent_arena, swapchain_image_count, PoneVkSemaphore);
     for (usize i = 0; i < swapchain_image_count; i++) {
         usize arena_tmp_begin = permanent_arena.offset;
+        PoneVkSemaphore *submit_semaphore = submit_semaphores + i;
 
         VkImageViewCreateInfo swapchain_image_view_create_info = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -952,6 +954,14 @@ int main(void) {
         swapchain_image_views[i] = *pone_vk_create_image_view(
             device, &swapchain_image_view_create_info, &permanent_arena);
 
+        VkSemaphoreCreateInfo semaphore_create_info = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            .pNext = 0,
+            .flags = 0,
+        };
+        pone_vk_create_semaphore(device, &semaphore_create_info,
+                                 submit_semaphore);
+
         permanent_arena.offset = arena_tmp_begin;
     }
     VkDeviceQueueInfo2 device_queue_info = {
@@ -971,10 +981,8 @@ int main(void) {
     for (usize i = 0; i < frame_overlap; i++) {
         PoneVkCommandPool *command_pool = &frame_datas[i].command_pool;
         PoneVkCommandBuffer *command_buffer = &frame_datas[i].command_buffer;
-        PoneVkFence *render_fence = &frame_datas[i].render_fence;
-        PoneVkSemaphore *swapchain_semaphore =
-            &frame_datas[i].swapchain_semaphore;
-        PoneVkSemaphore *render_semaphore = &frame_datas[i].render_semaphore;
+        PoneVkFence *frame_fence = &frame_datas[i].frame_fence;
+        PoneVkSemaphore *acquire_semaphore = &frame_datas[i].acquire_semaphore;
 
         VkCommandPoolCreateInfo command_pool_create_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -998,7 +1006,7 @@ int main(void) {
             .pNext = 0,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
         };
-        pone_vk_create_fence(device, &fence_create_info, render_fence);
+        pone_vk_create_fence(device, &fence_create_info, frame_fence);
 
         VkSemaphoreCreateInfo semaphore_create_info = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -1006,9 +1014,7 @@ int main(void) {
             .flags = 0,
         };
         pone_vk_create_semaphore(device, &semaphore_create_info,
-                                 swapchain_semaphore);
-        pone_vk_create_semaphore(device, &semaphore_create_info,
-                                 render_semaphore);
+                                 acquire_semaphore);
     }
 
     usize frame_index = 0;
@@ -1044,16 +1050,16 @@ int main(void) {
 
         PoneFrameData *frame_data = frame_datas + (frame_index % frame_overlap);
 
-        pone_vk_wait_for_fences(device, 1, &frame_data->render_fence, 1,
+        pone_vk_wait_for_fences(device, 1, &frame_data->frame_fence, 1,
                                 1000000000, &permanent_arena);
-        pone_vk_reset_fences(device, 1, &frame_data->render_fence,
+        pone_vk_reset_fences(device, 1, &frame_data->frame_fence,
                              &permanent_arena);
 
         u32 swapchain_image_index;
         PoneVkAcquireNextImageInfoKhr acquire_swapchain_image_info = {
             .swapchain = swapchain,
             .timeout = 1000000000,
-            .semaphore = &frame_data->swapchain_semaphore,
+            .semaphore = &frame_data->acquire_semaphore,
             .fence = 0,
         };
         VkResult acquire_ret = pone_vk_acquire_next_image_khr(
@@ -1062,6 +1068,9 @@ int main(void) {
             wayland.resize_requested = 1;
             continue;
         }
+        PoneVkSemaphore *submit_semaphore =
+            submit_semaphores + swapchain_image_index;
+
         pone_vk_begin_command_buffer(
             &frame_data->command_buffer,
             VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -1097,7 +1106,7 @@ int main(void) {
         VkSemaphoreSubmitInfo wait_semaphore_submit_info = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .pNext = 0,
-            .semaphore = frame_data->swapchain_semaphore.handle,
+            .semaphore = frame_data->acquire_semaphore.handle,
             .value = 1,
             .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
             .deviceIndex = 0,
@@ -1105,7 +1114,7 @@ int main(void) {
         VkSemaphoreSubmitInfo signal_semaphore_submit_info = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .pNext = 0,
-            .semaphore = frame_data->render_semaphore.handle,
+            .semaphore = submit_semaphore->handle,
             .value = 1,
             .stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
             .deviceIndex = 0,
@@ -1122,13 +1131,13 @@ int main(void) {
             .pSignalSemaphoreInfos = &signal_semaphore_submit_info,
         };
         pone_vk_queue_submit_2(queue, 1, &submit_info,
-                               frame_data->render_fence.handle);
+                               frame_data->frame_fence.handle);
 
         VkPresentInfoKHR present_info = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .pNext = 0,
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &frame_data->render_semaphore.handle,
+            .pWaitSemaphores = &submit_semaphore->handle,
             .swapchainCount = 1,
             .pSwapchains = &swapchain->handle,
             .pImageIndices = &swapchain_image_index,
