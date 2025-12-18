@@ -1036,6 +1036,8 @@ int main(void) {
                 &resize_info, &permanent_arena);
 
             wl_surface_commit(wayland.surface);
+            wayland.resize_requested = 0;
+            wayland.ready_to_resize = 0;
         } else if (wayland.resize_requested) {
             pone_assert(0);
         }
