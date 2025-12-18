@@ -719,13 +719,16 @@ struct PoneVkResizeSwapchainInfo {
     u32 queue_family_index;
     VkSurfaceTransformFlagBitsKHR pre_transform;
     VkPresentModeKHR present_mode;
+    u32 fence_count;
+    PoneVkFence *fences;
 };
 
 static void pone_renderer_vk_resize_swapchain(
     PoneVkDevice *device, PoneVkSwapchainKhr *swapchain,
     u32 swapchain_image_count, PoneVkImageView *swapchain_image_views,
     PoneVkResizeSwapchainInfo *resize_info, Arena *arena) {
-    pone_vk_device_wait_idle(device);
+    pone_vk_wait_for_fences(device, resize_info->fence_count,
+                            resize_info->fences, 1, 1000000000, arena);
 
     pone_renderer_vk_destroy_swapchain(device, swapchain, swapchain_image_count,
                                        swapchain_image_views);
@@ -1047,6 +1050,8 @@ int main(void) {
                 .queue_family_index = queue_family_index,
                 .pre_transform = surface_capabilities.currentTransform,
                 .present_mode = physical_device_query.required_present_mode,
+                .fence_count = frame_data.frame_in_flight_count,
+                .fences = frame_data.frame_fences,
             };
 
             pone_renderer_vk_resize_swapchain(
