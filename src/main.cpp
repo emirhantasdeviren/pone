@@ -1013,7 +1013,10 @@ int main(void) {
     }
 
     usize frame_index = 0;
+    u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
+        u64 t1 = pone_platform_get_time();
+        printf("phase 1: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
         if (wayland.resize_requested && wayland.ready_to_resize) {
             PoneVkResizeSwapchainInfo resize_info = {
                 .surface = surface,
@@ -1121,8 +1124,13 @@ int main(void) {
             .signalSemaphoreInfoCount = 1,
             .pSignalSemaphoreInfos = &signal_semaphore_submit_info,
         };
-        pone_vk_queue_submit_2(queue, 1, &submit_info,
-                               frame_data->render_fence.handle);
+        {
+            u64 t0 = pone_platform_get_time();
+            pone_vk_queue_submit_2(queue, 1, &submit_info,
+                                   frame_data->render_fence.handle);
+            u64 t1 = pone_platform_get_time();
+            printf("queue submit: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
+        }
 
         VkPresentInfoKHR present_info = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -1139,8 +1147,11 @@ int main(void) {
             wayland.resize_requested = 1;
             continue;
         }
+        t1 = pone_platform_get_time();
+        printf("total: %.3f ms\n", (f64)(t1 - t0) * 1e-6);
 
         frame_index++;
+        t0 = pone_platform_get_time();
     }
 
     return 0;
