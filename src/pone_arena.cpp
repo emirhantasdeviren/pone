@@ -146,15 +146,13 @@ static usize _pone_align_address(usize addr, usize align) {
 static void _pone_arena_create_sub_arena_aligned(Arena *arena, usize capacity,
                                                  Arena *sub_arena,
                                                  usize align) {
-    usize header_addr = _pone_align_address((usize)arena->base + arena->offset, align);
-    usize base_addr = _pone_align_address(header_addr + sizeof(AllocationHeader), align);
+    usize base = _pone_align_address((usize)arena->base + arena->offset, align);
 
-    pone_assert(base_addr + capacity <= (usize)arena->base + arena->capacity);
+    pone_assert(base + capacity <= (usize)arena->base + arena->capacity);
 
-    ((AllocationHeader *)header_addr)->size = capacity;
-    arena->offset = (base_addr + capacity) - (usize)arena->base;
+    arena->offset = (base + capacity) - (usize)arena->base;
     *sub_arena = (Arena){
-        .base = (void *)base_addr,
+        .base = (void *)base,
         .offset = 0,
         .capacity = capacity,
     };
