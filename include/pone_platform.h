@@ -16,5 +16,6 @@ struct PonePlatformSystemInfo {
 void pone_platform_get_system_info(PonePlatformSystemInfo *info);
 void *pone_platform_allocate_memory(void *addr, usize size);
 void pone_platform_deallocate_memory(void *p);
+u64 pone_platform_get_time(void);
 
 #endif

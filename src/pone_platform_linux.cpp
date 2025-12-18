@@ -1,6 +1,8 @@
 #include "pone_platform.h"
+#include "pone_assert.h"
 
 #include <unistd.h>
+#include <time.h>
 #include <sys/mman.h>
 
 void pone_platform_get_system_info(PonePlatformSystemInfo *info) {
@@ -18,3 +20,11 @@ void *pone_platform_allocate_memory(void *addr, usize size) {
 }
 
 void pone_platform_deallocate_memory(void *p) {}
+
+u64 pone_platform_get_time(void) {
+    struct timespec ts;
+    int ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+    pone_assert(ret == 0);
+
+    return (u64)ts.tv_sec * 1000000000ull + (u64)ts.tv_nsec;
+}
