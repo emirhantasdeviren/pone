@@ -1021,10 +1021,11 @@ int main(void) {
                 .format = physical_device_query.required_surface_format.format,
                 .color_space =
                     physical_device_query.required_surface_format.colorSpace,
-                .extent = (VkExtent2D){
-                    .width = wayland.width,
-                    .height = wayland.height,
-                },
+                .extent =
+                    (VkExtent2D){
+                        .width = wayland.width,
+                        .height = wayland.height,
+                    },
                 .queue_family_index = queue_family_index,
                 .pre_transform = surface_capabilities.currentTransform,
                 .present_mode = physical_device_query.required_present_mode,
