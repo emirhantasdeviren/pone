@@ -341,21 +341,21 @@ VkPipeline pipeline_builder_build(
     return pipeline;
 }
 
-static i32
-find_memory_type_index(u32 type_bits,
-                       VkPhysicalDeviceMemoryProperties2 *memory_properties,
-                       VkMemoryPropertyFlags properties, u32 *index) {
+static b8
+pone_get_memory_type(u32 type_bits,
+                     VkPhysicalDeviceMemoryProperties2 *memory_properties,
+                     VkMemoryPropertyFlags properties, u32 *index) {
     for (u32 i = 0; i < memory_properties->memoryProperties.memoryTypeCount;
          i++) {
         if ((type_bits & (1 << i)) &&
             (memory_properties->memoryProperties.memoryTypes[i].propertyFlags &
              properties) == properties) {
             *index = i;
-            return 1;
+            return 0;
         }
     }
 
-    return 0;
+    return -1;
 }
 
 static b8 global_running = 1;
@@ -1031,6 +1031,252 @@ int main(void) {
         pone_vk_create_semaphore(device, &semaphore_create_info,
                                  acquire_semaphore);
     }
+    PoneString font_file_path;
+    pone_string_from_cstr("./fonts/JetBrainsMonoNerdFontMono-Regular.ttf",
+                          &font_file_path);
+
+    PoneTruetypeInput font_file;
+    pone_platform_read_file(&font_file_path, &font_file.length, 0,
+                            &scratch_arena);
+    font_file.data = arena_alloc(&scratch_arena, font_file.length);
+    pone_platform_read_file(&font_file_path, &font_file.length, font_file.data,
+                            &scratch_arena);
+
+    PoneTrueTypeFont *font = pone_truetype_parse(font_file, &scratch_arena);
+    PoneTrueTypeSdfAtlas atlas;
+    usize permanent_arena_size = permanent_arena.offset;
+    usize scratch_arena_size = scratch_arena.offset;
+    u64 t0 = pone_platform_get_time();
+    pone_truetype_font_generate_sdf(font, 48, 8, &permanent_arena,
+                                    &scratch_arena, &atlas);
+    u64 t1 = pone_platform_get_time();
+    printf("%.3lf ms\n", (f64)(t1 - t0) * 1e-6);
+    printf("Memory used: %.3lf %.3lf\n",
+           (f64)(permanent_arena.offset - permanent_arena_size) / 1048576.0,
+           (f64)(scratch_arena.offset - scratch_arena_size) / 1048576.0);
+
+    VkBuffer atlas_texture_staging_buffer;
+    VkBufferCreateInfo atlas_texture_staging_buffer_create_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .size = atlas.width * atlas.height * sizeof(u32),
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = 0,
+    };
+    pone_vk_create_buffer(device, &atlas_texture_staging_buffer_create_info,
+                          &atlas_texture_staging_buffer);
+    VkMemoryRequirements2 atlas_texture_staging_buffer_memory_requirements;
+    pone_vk_get_buffer_memory_requirements_2(
+        device, atlas_texture_staging_buffer,
+        &atlas_texture_staging_buffer_memory_requirements);
+    VkMemoryAllocateInfo atlas_texture_staging_buffer_memory_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = 0,
+        .allocationSize = atlas_texture_staging_buffer_memory_requirements
+                              .memoryRequirements.size,
+    };
+    pone_assert(
+        pone_get_memory_type(atlas_texture_staging_buffer_memory_requirements
+                                 .memoryRequirements.memoryTypeBits,
+                             &physical_device->memory_properties,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             &atlas_texture_staging_buffer_memory_allocate_info
+                                  .memoryTypeIndex) == 0);
+    VkDeviceMemory atlas_texture_staging_buffer_device_memory;
+    pone_vk_allocate_memory(device,
+                            &atlas_texture_staging_buffer_memory_allocate_info,
+                            &atlas_texture_staging_buffer_device_memory);
+    VkBindBufferMemoryInfo
+        atlas_texture_staging_buffer_bind_buffer_memory_info = {
+            .sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+            .pNext = 0,
+            .buffer = atlas_texture_staging_buffer,
+            .memory = atlas_texture_staging_buffer_device_memory,
+            .memoryOffset = 0,
+        };
+    pone_vk_bind_buffer_memory_2(
+        device, 1, &atlas_texture_staging_buffer_bind_buffer_memory_info);
+    void *atlas_texture_staging_buffer_data;
+    pone_vk_map_memory(device, atlas_texture_staging_buffer_device_memory, 0,
+                       atlas_texture_staging_buffer_memory_requirements
+                           .memoryRequirements.size,
+                       0, &atlas_texture_staging_buffer_data);
+    pone_memcpy(atlas_texture_staging_buffer_data, atlas.buf,
+                atlas.width * atlas.height * sizeof(u32));
+
+    VkBufferImageCopy2 atlas_texture_buffer_image_copy_region = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+        .pNext = 0,
+        .bufferOffset = 0,
+        .bufferRowLength = (u32)atlas.width,
+        .bufferImageHeight = (u32)atlas.height,
+        .imageSubresource =
+            (VkImageSubresourceLayers){
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .imageOffset = (VkOffset3D){.x = 0, .y = 0, .z = 0},
+        .imageExtent = (VkExtent3D){.width = (u32)atlas.width,
+                                    .height = (u32)atlas.height,
+                                    .depth = 1},
+    };
+
+    VkImageCreateInfo atlas_texture_image_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .extent =
+            (VkExtent3D){
+                .width = (u32)atlas.width,
+                .height = (u32)atlas.height,
+                .depth = 1,
+            },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = 0,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    PoneVkImage *atlas_texture_image = pone_vk_create_image(
+        device, &atlas_texture_image_create_info, &permanent_arena);
+    VkMemoryRequirements2 atlas_texture_image_memory_requirements;
+    pone_vk_get_image_memory_requirements_2(
+        device, atlas_texture_image, &atlas_texture_image_memory_requirements);
+
+    VkMemoryAllocateInfo atlas_texture_image_memory_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = 0,
+        .allocationSize =
+            atlas_texture_image_memory_requirements.memoryRequirements.size,
+    };
+    pone_assert(
+        pone_get_memory_type(
+            atlas_texture_image_memory_requirements.memoryRequirements
+                .memoryTypeBits,
+            &physical_device->memory_properties,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            &atlas_texture_image_memory_allocate_info.memoryTypeIndex) == 0);
+    VkDeviceMemory atlas_texture_image_device_memory;
+    pone_vk_allocate_memory(device, &atlas_texture_image_memory_allocate_info,
+                            &atlas_texture_image_device_memory);
+    VkBindImageMemoryInfo atlas_texture_image_bind_memory_info = {
+        .sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+        .pNext = 0,
+        .image = atlas_texture_image->handle,
+        .memory = atlas_texture_image_device_memory,
+        .memoryOffset = 0,
+    };
+    pone_vk_bind_image_memory_2(device, 1,
+                                &atlas_texture_image_bind_memory_info);
+
+    VkImageSubresourceRange atlas_texture_image_subresource_range = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+
+    VkImageMemoryBarrier2 atlas_texture_image_memory_barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .pNext = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+        .srcAccessMask = VK_ACCESS_2_NONE,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = queue_family_index,
+        .dstQueueFamilyIndex = queue_family_index,
+        .image = atlas_texture_image->handle,
+        .subresourceRange = atlas_texture_image_subresource_range,
+    };
+    VkDependencyInfo atlas_texture_image_dependency_info = {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .pNext = 0,
+        .dependencyFlags = 0,
+        .memoryBarrierCount = 0,
+        .pMemoryBarriers = 0,
+        .bufferMemoryBarrierCount = 0,
+        .pBufferMemoryBarriers = 0,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &atlas_texture_image_memory_barrier,
+    };
+    PoneVkCommandBuffer *atlas_texture_image_command_buffer =
+        &frame_data.command_buffers[0];
+    pone_vk_begin_command_buffer(atlas_texture_image_command_buffer,
+                                 VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    pone_vk_cmd_pipeline_barrier_2(atlas_texture_image_command_buffer,
+                                   &atlas_texture_image_dependency_info);
+
+    VkCopyBufferToImageInfo2 atlas_texture_copy_buffer_to_image_info = {
+        .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
+        .pNext = 0,
+        .srcBuffer = atlas_texture_staging_buffer,
+        .dstImage = atlas_texture_image->handle,
+        .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .regionCount = 1,
+        .pRegions = &atlas_texture_buffer_image_copy_region,
+    };
+    pone_vk_cmd_copy_buffer_to_image_2(
+        atlas_texture_image_command_buffer,
+        &atlas_texture_copy_buffer_to_image_info);
+
+    atlas_texture_image_memory_barrier.srcStageMask =
+        VK_PIPELINE_STAGE_2_COPY_BIT;
+    atlas_texture_image_memory_barrier.srcAccessMask =
+        VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    atlas_texture_image_memory_barrier.dstStageMask =
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    atlas_texture_image_memory_barrier.dstAccessMask =
+        VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    atlas_texture_image_memory_barrier.oldLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    atlas_texture_image_memory_barrier.newLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    pone_vk_cmd_pipeline_barrier_2(atlas_texture_image_command_buffer,
+                                   &atlas_texture_image_dependency_info);
+    pone_vk_end_command_buffer(atlas_texture_image_command_buffer);
+
+    VkCommandBufferSubmitInfo atlas_texture_image_command_buffer_submit_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .pNext = 0,
+        .commandBuffer = atlas_texture_image_command_buffer->handle,
+        .deviceMask = 0,
+    };
+    VkSubmitInfo2 atlas_texture_image_submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .pNext = 0,
+        .flags = 0,
+        .waitSemaphoreInfoCount = 0,
+        .pWaitSemaphoreInfos = 0,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &atlas_texture_image_command_buffer_submit_info,
+        .signalSemaphoreInfoCount = 0,
+        .pSignalSemaphoreInfos = 0,
+    };
+    VkFenceCreateInfo atlas_texture_image_fence_create_info = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .pNext = 0, .flags = 0};
+    PoneVkFence atlas_texture_image_fence;
+    pone_vk_create_fence(device, &atlas_texture_image_fence_create_info,
+                         &atlas_texture_image_fence);
+    pone_vk_queue_submit_2(queue, 1, &atlas_texture_image_submit_info,
+                           atlas_texture_image_fence.handle);
+    pone_vk_wait_for_fences(device, 1, &atlas_texture_image_fence, 1,
+                            1000000000, &scratch_arena);
 
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
@@ -1654,7 +1900,8 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
                     vertex->normal = *((Vec3 *)normal_data + vertex_index);
                     // vertex->normal = (Vec3){
                     //     .x = *(f32 *)((u8 *)normal_data +
-                    //     normal_data_offset), .y = *((f32 *)((u8 *)normal_data
+                    //     normal_data_offset), .y = *((f32 *)((u8
+                    //     *)normal_data
                     //     + normal_data_offset) +
                     //            1),
                     //     .z = *((f32 *)((u8 *)normal_data +
@@ -2992,8 +3239,9 @@ int WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance, LPSTR cmd_line,
             init_info.ApiVersion =
                 VK_API_VERSION_1_4; // Pass
                                     // in your value of
-                                    // VkApplicationInfo::apiVersion, otherwise
-                                    // will default to header version.
+                                    // VkApplicationInfo::apiVersion,
+                                    // otherwise will default to header
+                                    // version.
             init_info.Instance = instance;
             init_info.PhysicalDevice = selected_physical_device;
             init_info.Device = device;

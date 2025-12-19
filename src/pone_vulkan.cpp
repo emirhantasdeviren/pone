@@ -29,6 +29,9 @@ static void pone_vk_command_buffer_dispatch_init(
     pone_vk_get_device_proc_addr(device, vkCmdClearColorImage,
                                  dispatch->vk_cmd_clear_color_image,
                                  vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdCopyBufferToImage2,
+                                 dispatch->vk_cmd_copy_buffer_to_image_2,
+                                 vk_get_device_proc_addr);
 }
 
 static void
@@ -528,6 +531,11 @@ static b8 pone_vk_physical_device_check_queue_family_support(
         return 0;
     }
 
+    if (!(query->queue_family_properties[query->queue_family_index].queueFlags &
+          VK_QUEUE_TRANSFER_BIT)) {
+        return 0;
+    }
+
     return 1;
 }
 
@@ -993,6 +1001,19 @@ void pone_vk_cmd_clear_color_image(PoneVkCommandBuffer *command_buffer,
         ranges);
 }
 
+void pone_vk_cmd_copy_buffer_to_image_2(
+    PoneVkCommandBuffer *command_buffer,
+    VkCopyBufferToImageInfo2 *copy_buffer_to_image_info) {
+    (command_buffer->dispatch->vk_cmd_copy_buffer_to_image_2)(
+        command_buffer->handle, copy_buffer_to_image_info);
+}
+
+void pone_vk_cmd_pipeline_barrier_2(PoneVkCommandBuffer *command_buffer,
+                                    VkDependencyInfo *dependency_info) {
+    (command_buffer->dispatch->vk_cmd_pipeline_barrier_2)(
+        command_buffer->handle, dependency_info);
+}
+
 VkDeviceAddress pone_vk_get_buffer_device_address(PoneVkDevice *device,
                                                   VkBuffer buffer) {
     VkBufferDeviceAddressInfo info = {
@@ -1004,48 +1025,26 @@ VkDeviceAddress pone_vk_get_buffer_device_address(PoneVkDevice *device,
                                                             &info);
 }
 
-VkBuffer pone_vk_create_buffer(PoneVkDevice *device, usize size,
-                               VkBufferUsageFlags usage) {
-    VkBufferCreateInfo info = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = 0,
-        .flags = 0,
-        .size = size,
-        .usage = usage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = 0,
-    };
-
-    VkBuffer buffer;
-    pone_vk_check((device->dispatch->vk_create_buffer)(
-        device->handle, &info, device->allocation_callbacks, &buffer));
-
-    return buffer;
-}
-
 void pone_vk_destroy_buffer(PoneVkDevice *device, VkBuffer buffer) {
     (device->dispatch->vk_destroy_buffer)(device->handle, buffer,
                                           device->allocation_callbacks);
 }
 
-VkMemoryRequirements2
-pone_vk_get_buffer_memory_requirements_2(PoneVkDevice *device,
-                                         VkBuffer buffer) {
+void pone_vk_get_buffer_memory_requirements_2(
+    PoneVkDevice *device, VkBuffer buffer,
+    VkMemoryRequirements2 *memory_requirements) {
     VkBufferMemoryRequirementsInfo2 buffer_memory_requirements_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
         .pNext = 0,
         .buffer = buffer,
     };
-    VkMemoryRequirements2 memory_requirements = {
+    *memory_requirements = (VkMemoryRequirements2){
         .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
         .pNext = 0,
     };
 
     (device->dispatch->vk_get_buffer_memory_requirements_2)(
-        device->handle, &buffer_memory_requirements_info, &memory_requirements);
-
-    return memory_requirements;
+        device->handle, &buffer_memory_requirements_info, memory_requirements);
 }
 
 void pone_vk_bind_buffer_memory_2(PoneVkDevice *device, usize bind_info_count,
@@ -1055,21 +1054,12 @@ void pone_vk_bind_buffer_memory_2(PoneVkDevice *device, usize bind_info_count,
         (const VkBindBufferMemoryInfo *)bind_infos));
 }
 
-VkDeviceMemory pone_vk_allocate_memory(PoneVkDevice *device,
-                                       PoneVkMemoryAllocateInfo *info) {
-    VkMemoryAllocateInfo vk_memory_allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = info->p_next,
-        .allocationSize = info->allocation_size,
-        .memoryTypeIndex = info->memory_type_index,
-    };
-
-    VkDeviceMemory device_memory;
+void pone_vk_allocate_memory(PoneVkDevice *device,
+                             VkMemoryAllocateInfo *allocate_info,
+                             VkDeviceMemory *device_memory) {
     pone_vk_check((device->dispatch->vk_allocate_memory)(
-        device->handle, &vk_memory_allocate_info, device->allocation_callbacks,
-        &device_memory));
-
-    return device_memory;
+        device->handle, allocate_info, device->allocation_callbacks,
+        device_memory));
 }
 
 void pone_vk_free_memory(PoneVkDevice *device, VkDeviceMemory memory) {
@@ -1179,6 +1169,11 @@ PoneVkImage *pone_vk_create_image(PoneVkDevice *device,
     pone_vk_check((device->dispatch->vk_create_image)(
         device->handle, create_info, device->allocation_callbacks, &handle));
 
+    u32 queue_family_index = U32_MAX;
+    if (create_info->pQueueFamilyIndices) {
+        queue_family_index = create_info->pQueueFamilyIndices[0];
+    }
+
     *image = (PoneVkImage){
         .handle = handle,
         .image_type = create_info->imageType,
@@ -1190,7 +1185,7 @@ PoneVkImage *pone_vk_create_image(PoneVkDevice *device,
         .tiling = create_info->tiling,
         .usage = create_info->usage,
         .sharing_mode = create_info->sharingMode,
-        .queue_family_index = create_info->pQueueFamilyIndices[0],
+        .queue_family_index = queue_family_index,
         .initial_layout = create_info->initialLayout,
     };
 
@@ -1218,23 +1213,21 @@ PoneVkImageView *pone_vk_create_image_view(PoneVkDevice *device,
     return image_view;
 }
 
-VkMemoryRequirements2
-pone_vk_get_image_memory_requirements_2(PoneVkDevice *device,
-                                        PoneVkImage *image) {
+void pone_vk_get_image_memory_requirements_2(
+    PoneVkDevice *device, PoneVkImage *image,
+    VkMemoryRequirements2 *memory_requirements) {
     VkImageMemoryRequirementsInfo2 info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
         .pNext = 0,
         .image = image->handle,
     };
-    VkMemoryRequirements2 memory_requirements = {
+    *memory_requirements = (VkMemoryRequirements2){
         .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
         .pNext = 0,
     };
 
     (device->dispatch->vk_get_image_memory_requirements_2)(
-        device->handle, &info, &memory_requirements);
-
-    return memory_requirements;
+        device->handle, &info, memory_requirements);
 }
 
 void pone_vk_bind_image_memory_2(PoneVkDevice *device, usize bind_info_count,
@@ -1253,6 +1246,12 @@ void pone_vk_destroy_image_view(PoneVkDevice *device,
                                 PoneVkImageView *image_view) {
     (device->dispatch->vk_destroy_image_view)(
         device->handle, image_view->handle, device->allocation_callbacks);
+}
+
+void pone_vk_create_buffer(PoneVkDevice *device,
+                           VkBufferCreateInfo *create_info, VkBuffer *buffer) {
+    pone_vk_check((device->dispatch->vk_create_buffer)(
+        device->handle, create_info, device->allocation_callbacks, buffer));
 }
 
 void pone_vk_create_fence(PoneVkDevice *device, VkFenceCreateInfo *create_info,

@@ -150,6 +150,7 @@ struct PoneVkCommandBufferDispatch {
     PFN_vkCmdCopyBuffer vk_cmd_copy_buffer;
     PFN_vkCmdPipelineBarrier2 vk_cmd_pipeline_barrier_2;
     PFN_vkCmdClearColorImage vk_cmd_clear_color_image;
+    PFN_vkCmdCopyBufferToImage2 vk_cmd_copy_buffer_to_image_2;
 };
 
 struct PoneVkDeviceCreateInfo {
@@ -258,7 +259,12 @@ void pone_vk_cmd_clear_color_image(PoneVkCommandBuffer *command_buffer,
                                    VkImage image, VkImageLayout image_layout,
                                    VkClearColorValue *color, u32 range_count,
                                    VkImageSubresourceRange *ranges);
+void pone_vk_cmd_copy_buffer_to_image_2(
+    PoneVkCommandBuffer *command_buffer,
+    VkCopyBufferToImageInfo2 *copy_buffer_to_image_info);
 void pone_vk_end_command_buffer(PoneVkCommandBuffer *command_buffer);
+void pone_vk_cmd_pipeline_barrier_2(PoneVkCommandBuffer *command_buffer,
+                                    VkDependencyInfo *dependency_info);
 
 struct PoneVkImage {
     VkImage handle;
@@ -291,12 +297,6 @@ PoneVkImageView *pone_vk_create_image_view(PoneVkDevice *device,
                                            Arena *arena);
 void pone_vk_destroy_image_view(PoneVkDevice *device,
                                 PoneVkImageView *image_view);
-
-struct PoneVkMemoryAllocateInfo {
-    void *p_next;
-    usize allocation_size;
-    u32 memory_type_index;
-};
 
 struct PoneVkFence {
     VkFence handle;
@@ -332,23 +332,24 @@ pone_vk_acquire_next_image_khr(PoneVkDevice *device,
 
 VkDeviceAddress pone_vk_device_get_buffer_device_address(PoneVkDevice *device,
                                                          VkBuffer buffer);
-VkBuffer pone_vk_create_buffer(PoneVkDevice *device, usize size,
-                               VkBufferUsageFlags usage);
+void pone_vk_create_buffer(PoneVkDevice *device,
+                           VkBufferCreateInfo *create_info, VkBuffer *buffer);
 void pone_vk_destroy_buffer(PoneVkDevice *device, VkBuffer buffer);
-VkMemoryRequirements2
-pone_vk_get_buffer_memory_requirements_2(PoneVkDevice *device, VkBuffer buffer);
+void pone_vk_get_buffer_memory_requirements_2(
+    PoneVkDevice *device, VkBuffer buffer,
+    VkMemoryRequirements2 *memory_requirements);
 void pone_vk_bind_buffer_memory_2(PoneVkDevice *device, usize bind_info_count,
                                   VkBindBufferMemoryInfo *bind_infos);
 VkDeviceAddress pone_vk_get_buffer_device_address(PoneVkDevice *device,
                                                   VkBuffer buffer);
-VkMemoryRequirements2
-pone_vk_get_image_memory_requirements_2(PoneVkDevice *device,
-                                        PoneVkImage *image);
+void pone_vk_get_image_memory_requirements_2(
+    PoneVkDevice *device, PoneVkImage *image,
+    VkMemoryRequirements2 *memory_requirements);
 void pone_vk_bind_image_memory_2(PoneVkDevice *device, usize bind_info_count,
                                  VkBindImageMemoryInfo *bind_infos);
 void pone_vk_destroy_image(PoneVkDevice *device, PoneVkImage *image);
-VkDeviceMemory pone_vk_allocate_memory(PoneVkDevice *device,
-                                       PoneVkMemoryAllocateInfo *info);
+void pone_vk_allocate_memory(PoneVkDevice *device, VkMemoryAllocateInfo *info,
+                             VkDeviceMemory *device_memory);
 void pone_vk_free_memory(PoneVkDevice *device, VkDeviceMemory memory);
 void pone_vk_map_memory(PoneVkDevice *device, VkDeviceMemory memory,
                         usize offset, usize size, VkMemoryMapFlags flags,
