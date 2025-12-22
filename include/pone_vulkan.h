@@ -142,6 +142,7 @@ struct PoneVkDeviceDispatch {
     PFN_vkResetFences vk_reset_fences;
     PFN_vkCreateSemaphore vk_create_semaphore;
     PFN_vkGetDeviceProcAddr vk_get_device_proc_addr;
+    PFN_vkCreateDescriptorPool vk_create_descriptor_pool;
 };
 
 struct PoneVkCommandBufferDispatch {
@@ -329,6 +330,10 @@ VkResult
 pone_vk_acquire_next_image_khr(PoneVkDevice *device,
                                PoneVkAcquireNextImageInfoKhr *acquire_info,
                                u32 *image_index);
+
+void pone_vk_create_descriptor_pool(PoneVkDevice *device,
+                                    VkDescriptorPoolCreateInfo *create_info,
+                                    VkDescriptorPool *pool);
 
 VkDeviceAddress pone_vk_device_get_buffer_device_address(PoneVkDevice *device,
                                                          VkBuffer buffer);

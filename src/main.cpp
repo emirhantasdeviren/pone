@@ -1278,6 +1278,27 @@ int main(void) {
     pone_vk_wait_for_fences(device, 1, &atlas_texture_image_fence, 1,
                             1000000000, &scratch_arena);
 
+    VkDescriptorPoolSize descriptor_pool_sizes[2] = {
+        {
+            .type = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .descriptorCount = 1,
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = 1,
+        },
+    };
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .maxSets = 1,
+        .poolSizeCount = sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
+        .pPoolSizes = descriptor_pool_sizes,
+    };
+    VkDescriptorPool descriptor_pool;
+    pone_vk_create_descriptor_pool(device, &descriptor_pool_create_info, &descriptor_pool);
+
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {

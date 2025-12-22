@@ -116,6 +116,9 @@ pone_vk_device_dispatch_init(PoneVkDeviceDispatch *dispatch, VkDevice device,
     pone_vk_get_device_proc_addr(device, vkCreateSemaphore,
                                  dispatch->vk_create_semaphore,
                                  vk_get_device_proc_addr);
+   pone_vk_get_device_proc_addr(device, vkCreateDescriptorPool,
+                                 dispatch->vk_create_descriptor_pool,
+                                 vk_get_device_proc_addr);
 
     dispatch->vk_get_device_proc_addr = vk_get_device_proc_addr;
 }
@@ -1301,4 +1304,11 @@ void pone_vk_create_semaphore(PoneVkDevice *device,
     pone_vk_check((device->dispatch->vk_create_semaphore)(
         device->handle, create_info, device->allocation_callbacks,
         &semaphore->handle));
+}
+
+void pone_vk_create_descriptor_pool(PoneVkDevice *device,
+                                    VkDescriptorPoolCreateInfo *create_info,
+                                    VkDescriptorPool *pool) {
+    pone_vk_check((device->dispatch->vk_create_descriptor_pool)(
+        device->handle, create_info, device->allocation_callbacks, pool));
 }
