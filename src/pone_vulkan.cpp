@@ -116,8 +116,14 @@ pone_vk_device_dispatch_init(PoneVkDeviceDispatch *dispatch, VkDevice device,
     pone_vk_get_device_proc_addr(device, vkCreateSemaphore,
                                  dispatch->vk_create_semaphore,
                                  vk_get_device_proc_addr);
-   pone_vk_get_device_proc_addr(device, vkCreateDescriptorPool,
+    pone_vk_get_device_proc_addr(device, vkCreateDescriptorPool,
                                  dispatch->vk_create_descriptor_pool,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCreateDescriptorSetLayout,
+                                 dispatch->vk_create_descriptor_set_layout,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkAllocateDescriptorSets,
+                                 dispatch->vk_allocate_descriptor_sets,
                                  vk_get_device_proc_addr);
 
     dispatch->vk_get_device_proc_addr = vk_get_device_proc_addr;
@@ -1311,4 +1317,18 @@ void pone_vk_create_descriptor_pool(PoneVkDevice *device,
                                     VkDescriptorPool *pool) {
     pone_vk_check((device->dispatch->vk_create_descriptor_pool)(
         device->handle, create_info, device->allocation_callbacks, pool));
+}
+
+void pone_vk_create_descriptor_set_layout(
+    PoneVkDevice *device, VkDescriptorSetLayoutCreateInfo *create_info,
+    VkDescriptorSetLayout *set_layout) {
+    pone_vk_check((device->dispatch->vk_create_descriptor_set_layout)(
+        device->handle, create_info, device->allocation_callbacks, set_layout));
+}
+
+void pone_vk_allocate_descriptor_sets(
+    PoneVkDevice *device, VkDescriptorSetAllocateInfo *allocate_info,
+    VkDescriptorSet *descriptor_sets) {
+    pone_vk_check((device->dispatch->vk_allocate_descriptor_sets)(
+        device->handle, allocate_info, descriptor_sets));
 }

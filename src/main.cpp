@@ -1293,11 +1293,51 @@ int main(void) {
         .pNext = 0,
         .flags = 0,
         .maxSets = 1,
-        .poolSizeCount = sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
+        .poolSizeCount =
+            sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
         .pPoolSizes = descriptor_pool_sizes,
     };
     VkDescriptorPool descriptor_pool;
-    pone_vk_create_descriptor_pool(device, &descriptor_pool_create_info, &descriptor_pool);
+    pone_vk_create_descriptor_pool(device, &descriptor_pool_create_info,
+                                   &descriptor_pool);
+
+    VkDescriptorSetLayoutBinding descriptor_set_layout_bindings[2] = {
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = 0,
+        },
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = 0,
+        }};
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .bindingCount = sizeof(descriptor_set_layout_bindings) /
+                        sizeof(descriptor_set_layout_bindings[0]),
+        .pBindings = descriptor_set_layout_bindings,
+    };
+    VkDescriptorSetLayout descriptor_set_layout;
+    pone_vk_create_descriptor_set_layout(
+        device, &descriptor_set_layout_create_info, &descriptor_set_layout);
+    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = 0,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptor_set_layout,
+    };
+
+    VkDescriptorSet descriptor_set;
+    pone_vk_allocate_descriptor_sets(device, &descriptor_set_allocate_info,
+                                     &descriptor_set);
 
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();

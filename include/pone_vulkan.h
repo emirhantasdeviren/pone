@@ -143,6 +143,8 @@ struct PoneVkDeviceDispatch {
     PFN_vkCreateSemaphore vk_create_semaphore;
     PFN_vkGetDeviceProcAddr vk_get_device_proc_addr;
     PFN_vkCreateDescriptorPool vk_create_descriptor_pool;
+    PFN_vkCreateDescriptorSetLayout vk_create_descriptor_set_layout;
+    PFN_vkAllocateDescriptorSets vk_allocate_descriptor_sets;
 };
 
 struct PoneVkCommandBufferDispatch {
@@ -334,6 +336,12 @@ pone_vk_acquire_next_image_khr(PoneVkDevice *device,
 void pone_vk_create_descriptor_pool(PoneVkDevice *device,
                                     VkDescriptorPoolCreateInfo *create_info,
                                     VkDescriptorPool *pool);
+void pone_vk_create_descriptor_set_layout(
+    PoneVkDevice *device, VkDescriptorSetLayoutCreateInfo *create_info,
+    VkDescriptorSetLayout *set_layout);
+void pone_vk_allocate_descriptor_sets(
+    PoneVkDevice *device, VkDescriptorSetAllocateInfo *allocate_info,
+    VkDescriptorSet *descriptor_sets);
 
 VkDeviceAddress pone_vk_device_get_buffer_device_address(PoneVkDevice *device,
                                                          VkBuffer buffer);
