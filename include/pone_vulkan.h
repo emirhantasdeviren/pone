@@ -127,6 +127,7 @@ struct PoneVkDeviceDispatch {
     PFN_vkBindImageMemory2 vk_bind_image_memory_2;
     PFN_vkDestroyImage vk_destroy_image;
     PFN_vkDestroyImageView vk_destroy_image_view;
+    PFN_vkCreateSampler vk_create_sampler;
     PFN_vkAllocateMemory vk_allocate_memory;
     PFN_vkFreeMemory vk_free_memory;
     PFN_vkMapMemory vk_map_memory;
@@ -295,11 +296,18 @@ struct PoneVkImageView {
     VkImageSubresourceRange subresource_range;
 };
 
+void pone2_vk_create_image_view(PoneVkDevice *device,
+                                VkImageViewCreateInfo *create_info,
+                                VkImageView *image_view);
 PoneVkImageView *pone_vk_create_image_view(PoneVkDevice *device,
                                            VkImageViewCreateInfo *create_info,
                                            Arena *arena);
 void pone_vk_destroy_image_view(PoneVkDevice *device,
                                 PoneVkImageView *image_view);
+
+void pone_vk_create_sampler(PoneVkDevice *device,
+                            VkSamplerCreateInfo *create_info,
+                            VkSampler *sampler);
 
 struct PoneVkFence {
     VkFence handle;

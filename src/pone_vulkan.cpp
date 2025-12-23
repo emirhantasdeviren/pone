@@ -76,6 +76,9 @@ pone_vk_device_dispatch_init(PoneVkDeviceDispatch *dispatch, VkDevice device,
     pone_vk_get_device_proc_addr(device, vkDestroyImageView,
                                  dispatch->vk_destroy_image_view,
                                  vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCreateSampler,
+                                 dispatch->vk_create_sampler,
+                                 vk_get_device_proc_addr);
     pone_vk_get_device_proc_addr(device, vkAllocateMemory,
                                  dispatch->vk_allocate_memory,
                                  vk_get_device_proc_addr);
@@ -1201,6 +1204,13 @@ PoneVkImage *pone_vk_create_image(PoneVkDevice *device,
     return image;
 }
 
+void pone2_vk_create_image_view(PoneVkDevice *device,
+                                VkImageViewCreateInfo *create_info,
+                                VkImageView *image_view) {
+    pone_vk_check((device->dispatch->vk_create_image_view)(
+        device->handle, create_info, device->allocation_callbacks, image_view));
+}
+
 PoneVkImageView *pone_vk_create_image_view(PoneVkDevice *device,
                                            VkImageViewCreateInfo *create_info,
                                            Arena *arena) {
@@ -1255,6 +1265,13 @@ void pone_vk_destroy_image_view(PoneVkDevice *device,
                                 PoneVkImageView *image_view) {
     (device->dispatch->vk_destroy_image_view)(
         device->handle, image_view->handle, device->allocation_callbacks);
+}
+
+void pone_vk_create_sampler(PoneVkDevice *device,
+                            VkSamplerCreateInfo *create_info,
+                            VkSampler *sampler) {
+    pone_vk_check((device->dispatch->vk_create_sampler)(
+        device->handle, create_info, device->allocation_callbacks, sampler));
 }
 
 void pone_vk_create_buffer(PoneVkDevice *device,

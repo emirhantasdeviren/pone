@@ -1047,13 +1047,158 @@ int main(void) {
     usize permanent_arena_size = permanent_arena.offset;
     usize scratch_arena_size = scratch_arena.offset;
     u64 t0 = pone_platform_get_time();
-    pone_truetype_font_generate_sdf(font, 48, 8, &permanent_arena,
+    u32 d_pad = 8;
+    pone_truetype_font_generate_sdf(font, 48, d_pad, &permanent_arena,
                                     &scratch_arena, &atlas);
     u64 t1 = pone_platform_get_time();
     printf("%.3lf ms\n", (f64)(t1 - t0) * 1e-6);
     printf("Memory used: %.3lf %.3lf\n",
            (f64)(permanent_arena.offset - permanent_arena_size) / 1048576.0,
            (f64)(scratch_arena.offset - scratch_arena_size) / 1048576.0);
+
+    struct PoneGlyphVertexData {
+        Vec2 pos;
+        Vec2 tex;
+    };
+
+    PoneRectU32 *d_atlas_uv_rect = &atlas.glyph_rects[35];
+    f32 d_u_min = (f32)(d_atlas_uv_rect->x_min + d_pad) / (f32)atlas.width;
+    f32 d_u_max = (f32)(d_atlas_uv_rect->x_max - d_pad) / (f32)atlas.width;
+    f32 d_v_min = (f32)(d_atlas_uv_rect->y_min + d_pad) / (f32)atlas.height;
+    f32 d_v_max = (f32)(d_atlas_uv_rect->y_max - d_pad) / (f32)atlas.height;
+
+    PoneRectU32 *d_glyph_bbox = &atlas.glyph_bboxes[35];
+    u32 d_glyph_width = pone_rect_u32_width(d_glyph_bbox);
+    u32 d_glyph_height = pone_rect_u32_height(d_glyph_bbox);
+
+    f32 point_size = 64.0f; // 64 pt
+    f32 ppi = 72.0f;
+    f32 dpi = 96.0f;
+    f32 scale = (point_size * dpi) / (ppi * font->units_per_em);
+
+    f32 d_glyph_half_width_normalized =
+        d_glyph_width * scale * 0.5f / wayland.width;
+    f32 d_glyph_half_height_normalized =
+        d_glyph_height * scale * 0.5f / wayland.height;
+
+    f32 d_pos_x_min = -d_glyph_half_width_normalized;
+    f32 d_pos_x_max = d_glyph_half_width_normalized;
+    f32 d_pos_y_min = -d_glyph_half_height_normalized;
+    f32 d_pos_y_max = d_glyph_half_height_normalized;
+
+    VkBufferCreateInfo d_glyph_vertex_buffer_create_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .size = 6 * sizeof(PoneGlyphVertexData),
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = 0,
+    };
+    VkBuffer d_glyph_vertex_buffer;
+    pone_vk_create_buffer(device, &d_glyph_vertex_buffer_create_info,
+                          &d_glyph_vertex_buffer);
+    VkMemoryRequirements2 d_glyph_vertex_buffer_memory_requirements;
+    pone_vk_get_buffer_memory_requirements_2(
+        device, d_glyph_vertex_buffer,
+        &d_glyph_vertex_buffer_memory_requirements);
+    VkMemoryAllocateInfo d_glyph_vertex_buffer_memory_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = 0,
+        .allocationSize =
+            d_glyph_vertex_buffer_memory_requirements.memoryRequirements.size,
+    };
+    pone_assert(
+        pone_get_memory_type(
+            d_glyph_vertex_buffer_memory_requirements.memoryRequirements
+                .memoryTypeBits,
+            &physical_device->memory_properties,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &d_glyph_vertex_buffer_memory_allocate_info.memoryTypeIndex) == 0);
+    VkDeviceMemory d_glyph_vertex_buffer_device_memory;
+    pone_vk_allocate_memory(device, &d_glyph_vertex_buffer_memory_allocate_info,
+                            &d_glyph_vertex_buffer_device_memory);
+    void *d_glyph_vertex_buffer_data;
+    pone_vk_map_memory(
+        device, d_glyph_vertex_buffer_device_memory, 0,
+        d_glyph_vertex_buffer_memory_requirements.memoryRequirements.size, 0,
+        &d_glyph_vertex_buffer_data);
+    PoneGlyphVertexData *d_glyph_vertex_data =
+        (PoneGlyphVertexData *)d_glyph_vertex_buffer_data;
+    d_glyph_vertex_data[0] = {
+        .pos =
+            {
+                .x = d_pos_x_min,
+                .y = d_pos_y_min,
+            },
+        .tex =
+            {
+                .x = d_u_min,
+                .y = d_v_min,
+            },
+    };
+    d_glyph_vertex_data[1] = {
+        .pos =
+            {
+                .x = d_pos_x_min,
+                .y = d_pos_y_max,
+            },
+        .tex =
+            {
+                .x = d_u_min,
+                .y = d_v_max,
+            },
+    };
+    d_glyph_vertex_data[2] = {
+        .pos =
+            {
+                .x = d_pos_x_max,
+                .y = d_pos_y_max,
+            },
+        .tex =
+            {
+                .x = d_u_max,
+                .y = d_v_max,
+            },
+    };
+    d_glyph_vertex_data[3] = {
+        .pos =
+            {
+                .x = d_pos_x_min,
+                .y = d_pos_y_min,
+            },
+        .tex =
+            {
+                .x = d_u_min,
+                .y = d_v_min,
+            },
+    };
+    d_glyph_vertex_data[4] = {
+        .pos =
+            {
+                .x = d_pos_x_max,
+                .y = d_pos_y_max,
+            },
+        .tex =
+            {
+                .x = d_u_max,
+                .y = d_v_max,
+            },
+    };
+    d_glyph_vertex_data[5] = {
+        .pos =
+            {
+                .x = d_pos_x_max,
+                .y = d_pos_y_min,
+            },
+        .tex =
+            {
+                .x = d_u_max,
+                .y = d_v_min,
+            },
+    };
 
     VkBuffer atlas_texture_staging_buffer;
     VkBufferCreateInfo atlas_texture_staging_buffer_create_info = {
@@ -1151,6 +1296,34 @@ int main(void) {
     };
     PoneVkImage *atlas_texture_image = pone_vk_create_image(
         device, &atlas_texture_image_create_info, &permanent_arena);
+
+    VkImageViewCreateInfo atlas_texture_image_view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .image = atlas_texture_image->handle,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .components =
+            (VkComponentMapping){
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange =
+            (VkImageSubresourceRange){
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VkImageView atlas_texture_image_view;
+    pone2_vk_create_image_view(device, &atlas_texture_image_view_create_info,
+                               &atlas_texture_image_view);
+
     VkMemoryRequirements2 atlas_texture_image_memory_requirements;
     pone_vk_get_image_memory_requirements_2(
         device, atlas_texture_image, &atlas_texture_image_memory_requirements);
@@ -1277,6 +1450,30 @@ int main(void) {
                            atlas_texture_image_fence.handle);
     pone_vk_wait_for_fences(device, 1, &atlas_texture_image_fence, 1,
                             1000000000, &scratch_arena);
+
+    VkSamplerCreateInfo atlas_texture_sampler_create_info = {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = VK_FALSE,
+        .maxAnisotropy = 0.0f,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_NEVER,
+        .minLod = 0.0f,
+        .maxLod = 0.0f,
+        .borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
+    VkSampler atlas_texture_sampler;
+    pone_vk_create_sampler(device, &atlas_texture_sampler_create_info,
+                           &atlas_texture_sampler);
 
     VkDescriptorPoolSize descriptor_pool_sizes[2] = {
         {
