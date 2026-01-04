@@ -1681,7 +1681,7 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
 #endif
     atlas->glyph_rects =
         arena_alloc_array(permanent_arena, atlas->glyph_count, PoneRectU32);
-    atlas->glyph_bboxes = arena_alloc_array(permanent_arena, atlas->glyph_count, PoneRectU32);
+    atlas->glyph_bboxes = arena_alloc_array(permanent_arena, atlas->glyph_count, PoneRectF32);
 
     u32 *glyph_ids =
         arena_alloc_array(transient_arena, atlas->glyph_count, u32);
@@ -1747,12 +1747,8 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
         PoneRectF32 *glyph_bbox = glyph_bboxes + glyph_index;
 
         pone_sfnt_glyph_bounding_box(font, glyph, glyph_bbox);
-        atlas->glyph_bboxes[glyph_index] = {
-            .x_min = (u32)pone_floor(glyph_bbox->p_min.x),
-            .y_min = (u32)pone_floor(glyph_bbox->p_min.y),
-            .x_max = (u32)pone_ceil(glyph_bbox->p_max.x),
-            .y_max = (u32)pone_ceil(glyph_bbox->p_max.y),
-        };
+        atlas->glyph_bboxes[glyph_index] = *glyph_bbox;
+
         glyph_bbox->p_min = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox->p_min);
         glyph_bbox->p_max = pone_vec2_mul_scalar(pixels_per_funit, glyph_bbox->p_max);
         glyph_bbox->p_min.x -= d_pad;

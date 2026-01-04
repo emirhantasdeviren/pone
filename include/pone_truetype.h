@@ -89,7 +89,7 @@ struct PoneTrueTypeSdfAtlas {
     usize height;
     usize glyph_count;
     PoneRectU32 *glyph_rects;
-    PoneRectU32 *glyph_bboxes;
+    PoneRectF32 *glyph_bboxes;
 };
 
 PoneTrueTypeFont *pone_truetype_parse(PoneTruetypeInput input, Arena *arena);
