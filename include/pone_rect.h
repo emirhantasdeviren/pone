@@ -3,16 +3,16 @@
 
 #include "pone_vec2.h"
 
-struct PoneRect {
+struct PoneRectF32 {
     Vec2 p_min;
     Vec2 p_max;
 };
 
-inline f32 pone_rect_width(PoneRect *rect) {
+inline f32 pone_rect_f32_width(PoneRectF32 *rect) {
     return rect->p_max.x - rect->p_min.x;
 }
 
-inline f32 pone_rect_height(PoneRect *rect) {
+inline f32 pone_rect_f32_height(PoneRectF32 *rect) {
     return rect->p_max.y - rect->p_min.y;
 }
 

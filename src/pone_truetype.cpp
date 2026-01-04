@@ -522,8 +522,8 @@ static void pone_sfnt_parse_glyph(PoneSfntScanner *scanner,
 }
 
 static inline void pone_sfnt_glyph_bbox_rect(PoneSfntGlyphBbox *bbox,
-                                             PoneRect *rect) {
-    *rect = (PoneRect){
+                                             PoneRectF32 *rect) {
+    *rect = (PoneRectF32){
         .p_min =
             {
                 .x = (f32)bbox->x_min,
@@ -690,7 +690,7 @@ static Vec2 pone_truetype_edge_segment_at_t(PoneTrueTypeEdgeSegment *edge,
 }
 
 static void pone_truetype_edge_segment_bbox(PoneTrueTypeEdgeSegment *edge,
-                                            PoneRect *rect) {
+                                            PoneRectF32 *rect) {
     switch (edge->point_count) {
     case 2: {
         Vec2 a = pone_truetype_edge_segment_at_t(edge, 0.0f);
@@ -737,7 +737,7 @@ static void pone_truetype_edge_segment_bbox(PoneTrueTypeEdgeSegment *edge,
     }
 }
 
-static inline b8 pone_truetype_between_closed_open(Vec2 p, PoneRect *rect) {
+static inline b8 pone_truetype_between_closed_open(Vec2 p, PoneRectF32 *rect) {
     return p.y >= rect->p_min.y - PONE_EPSILON &&
            p.y < rect->p_max.y - PONE_EPSILON;
 }
@@ -1147,8 +1147,8 @@ static void pone_sfnt_glyph_point_apply_transformation(
 
 struct PoneSfntGlyphPointRangeMap {
     f32 scale;
-    PoneRect *range_a;
-    PoneRect *range_b;
+    PoneRectF32 *range_a;
+    PoneRectF32 *range_b;
     b8 invert_y;
 };
 
@@ -1347,8 +1347,8 @@ static b8 pone_sfnt_glyph_contour_next_edge_segment(
 
 static void pone_sfnt_simple_glyph_bounding_box(
     PoneSfntSimpleGlyph *glyph, PoneSfntGlyphPointMapConstants *map_constants,
-    PoneRect *bbox) {
-    *bbox = (PoneRect){
+    PoneRectF32 *bbox) {
+    *bbox = (PoneRectF32){
         .p_min =
             {
                 .x = PONE_F32_MAX,
@@ -1372,7 +1372,7 @@ static void pone_sfnt_simple_glyph_bounding_box(
         PoneTrueTypeEdgeSegment edge_segment;
         while (
             pone_sfnt_glyph_contour_next_edge_segment(&iter, &edge_segment)) {
-            PoneRect edge_segment_bbox;
+            PoneRectF32 edge_segment_bbox;
 
             pone_truetype_edge_segment_bbox(&edge_segment, &edge_segment_bbox);
             bbox->p_min.x = PONE_MIN(bbox->p_min.x, edge_segment_bbox.p_min.x);
@@ -1384,7 +1384,7 @@ static void pone_sfnt_simple_glyph_bounding_box(
 }
 
 static void pone_sfnt_glyph_bounding_box(PoneTrueTypeFont *font,
-                                         PoneSfntGlyph *glyph, PoneRect *bbox) {
+                                         PoneSfntGlyph *glyph, PoneRectF32 *bbox) {
     switch (glyph->type) {
     case PONE_SFNT_GLYPH_TYPE_SIMPLE: {
         pone_sfnt_simple_glyph_bounding_box(&glyph->simple, 0, bbox);
@@ -1417,7 +1417,7 @@ static void pone_sfnt_glyph_bounding_box(PoneTrueTypeFont *font,
                 .transform = &transform,
             };
             pone_assert(component_glyph->type == PONE_SFNT_GLYPH_TYPE_SIMPLE);
-            PoneRect component_bbox;
+            PoneRectF32 component_bbox;
             pone_sfnt_simple_glyph_bounding_box(
                 &component_glyph->simple, &map_constants, &component_bbox);
             bbox->p_min.x = PONE_MIN(bbox->p_min.x, component_bbox.p_min.x);
@@ -1499,11 +1499,11 @@ static void pone_sfnt_simple_glyph_calculate_sdf(
                 candidate_edge_segment.point_count = 3;
             }
 
-            PoneRect edge_segment_bbox;
+            PoneRectF32 edge_segment_bbox;
             pone_truetype_edge_segment_bbox(&candidate_edge_segment,
                                             &edge_segment_bbox);
 
-            PoneRect edge_segment_bbox_padded = {
+            PoneRectF32 edge_segment_bbox_padded = {
                 .p_min =
                     {
                         .x = edge_segment_bbox.p_min.x - sdf_data->d_pad,
@@ -1570,10 +1570,10 @@ static void pone_sfnt_simple_glyph_calculate_sdf(
             candidate_edge_segment.point_count = 3;
         }
 
-        PoneRect edge_segment_bbox;
+        PoneRectF32 edge_segment_bbox;
         pone_truetype_edge_segment_bbox(&candidate_edge_segment,
                                         &edge_segment_bbox);
-        PoneRect edge_segment_bbox_padded = {
+        PoneRectF32 edge_segment_bbox_padded = {
             .p_min =
                 {
                     .x = edge_segment_bbox.p_min.x - sdf_data->d_pad,
@@ -1739,12 +1739,12 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
         };
     }
 
-    PoneRect *glyph_bboxes = arena_alloc_array(transient_arena, atlas->glyph_count, PoneRect);
+    PoneRectF32 *glyph_bboxes = arena_alloc_array(transient_arena, atlas->glyph_count, PoneRectF32);
     for (usize glyph_index = 0; glyph_index < atlas->glyph_count;
          ++glyph_index) {
         u32 glyph_id = glyph_ids[glyph_index];
         PoneSfntGlyph *glyph = font->glyphs + glyph_id;
-        PoneRect *glyph_bbox = glyph_bboxes + glyph_index;
+        PoneRectF32 *glyph_bbox = glyph_bboxes + glyph_index;
 
         pone_sfnt_glyph_bounding_box(font, glyph, glyph_bbox);
         atlas->glyph_bboxes[glyph_index] = {
@@ -1817,7 +1817,7 @@ void pone_truetype_font_generate_sdf(PoneTrueTypeFont *font, u32 resolution,
         i8 *delta_windings =
             arena_alloc_array(transient_arena, glyph_width * glyph_height, i8);
         pone_memset(delta_windings, 0, glyph_width * glyph_height * sizeof(i8));
-        PoneRect range_b = {
+        PoneRectF32 range_b = {
             .p_min =
                 {
                     .x = 0.0f,
