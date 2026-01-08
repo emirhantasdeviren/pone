@@ -128,6 +128,9 @@ pone_vk_device_dispatch_init(PoneVkDeviceDispatch *dispatch, VkDevice device,
     pone_vk_get_device_proc_addr(device, vkAllocateDescriptorSets,
                                  dispatch->vk_allocate_descriptor_sets,
                                  vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCreateShaderModule,
+                                 dispatch->vk_create_shader_module,
+                                 vk_get_device_proc_addr);
 
     dispatch->vk_get_device_proc_addr = vk_get_device_proc_addr;
 }
@@ -1348,4 +1351,13 @@ void pone_vk_allocate_descriptor_sets(
     VkDescriptorSet *descriptor_sets) {
     pone_vk_check((device->dispatch->vk_allocate_descriptor_sets)(
         device->handle, allocate_info, descriptor_sets));
+}
+
+void pone_vk_create_shader_module(PoneVkDevice *device,
+                                  VkShaderModuleCreateInfo *create_info,
+                                  VkShaderModule *shader_module) {
+    pone_vk_check((device->dispatch->vk_create_shader_module)(device->handle,
+                                                              create_info,
+                                                              device->allocation_callbacks,
+                                                              shader_module));
 }

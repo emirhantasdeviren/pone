@@ -146,6 +146,7 @@ struct PoneVkDeviceDispatch {
     PFN_vkCreateDescriptorPool vk_create_descriptor_pool;
     PFN_vkCreateDescriptorSetLayout vk_create_descriptor_set_layout;
     PFN_vkAllocateDescriptorSets vk_allocate_descriptor_sets;
+    PFN_vkCreateShaderModule vk_create_shader_module;
 };
 
 struct PoneVkCommandBufferDispatch {
@@ -381,5 +382,9 @@ PoneVkQueue *pone_vk_get_device_queue(PoneVkDevice *device,
 void pone_vk_cmd_copy_buffer(PoneVkCommandBuffer *command_buffer,
                              VkBuffer src_buffer, VkBuffer dst_buffer,
                              usize region_count, VkBufferCopy *regions);
+
+void pone_vk_create_shader_module(PoneVkDevice *device,
+                                  VkShaderModuleCreateInfo *create_info,
+                                  VkShaderModule *shader_module);
 
 #endif
