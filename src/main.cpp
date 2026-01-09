@@ -1605,6 +1605,123 @@ int main(void) {
     pone_vk_allocate_descriptor_sets(device, &descriptor_set_allocate_info,
                                      &descriptor_set);
 
+    PoneString text_vertex_shader_path;
+    pone_string_from_cstr("shaders/text.vert.spv", &text_vertex_shader_path);
+    VkShaderModule text_vertex_shader_module = pone_renderer_create_shader(device,
+                                                                           &text_vertex_shader_path, &scratch_arena);
+
+    PoneString text_frag_shader_path;
+    pone_string_from_cstr("shaders/text.frag.spv", &text_frag_shader_path);
+    VkShaderModule text_frag_shader_module = pone_renderer_create_shader(device,
+                                                                         &text_frag_shader_path, &scratch_arena);
+
+    VkPipelineShaderStageCreateInfo text_pipeline_vertex_shader_stage_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = text_vertex_shader_module,
+        .pName = "main",
+        .pSpecializationInfo = 0,
+    };
+    VkPipelineShaderStageCreateInfo text_pipeline_frag_shader_stage_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = text_frag_shader_module,
+        .pName = "main",
+        .pSpecializationInfo = 0,
+    };
+
+    VkVertexInputBindingDescription text_vertex_input_binding_descriptions[2] = {
+        {
+            .binding = 0,
+            .stride = sizeof(PoneGlyphVertexData),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
+        {
+            .binding = 1,
+            .stride = sizeof(PoneGlyphInstanceData),
+            .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
+        }
+    };
+    u32 text_vertex_input_binding_description_count = sizeof(text_vertex_input_binding_descriptions)
+                                                      / sizeof(text_vertex_input_binding_descriptions[0]);
+
+    VkVertexInputAttributeDescription text_vertex_input_attribute_descriptions[] = {
+        {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = 0,
+        },
+        {
+            .location = 1,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = __builtin_offsetof(PoneGlyphVertexData, pos),
+        },
+        {
+            .location = 2,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = 0,
+        },
+        {
+            .location = 3,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = __builtin_offsetof(PoneGlyphInstanceData, size),
+        },
+        {
+            .location = 4,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = __builtin_offsetof(PoneGlyphInstanceData, uv_min),
+        },
+        {
+            .location = 5,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = __builtin_offsetof(PoneGlyphInstanceData, uv_max),
+        }
+    };
+    u32 text_vertex_input_attribute_description_count = sizeof(text_vertex_input_attribute_descriptions)
+                                                        / sizeof(text_vertex_input_attribute_descriptions[0]);
+
+    VkPipelineVertexInputStateCreateInfo text_pipeline_vertex_input_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .vertexBindingDescriptionCount = text_vertex_input_binding_description_count,
+        .pVertexBindingDescriptions = text_vertex_input_binding_descriptions,
+        .vertexAttributeDescriptionCount = text_vertex_input_attribute_description_count,
+        .pVertexAttributeDescriptions = text_vertex_input_attribute_descriptions
+    };
+    VkPipelineInputAssemblyStateCreateInfo text_pipeline_input_assembly_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+    VkPipelineTessellationStateCreateInfo text_pipeline_tesselation_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .patchControlPoints = 0,
+    };
+    VkPipelineViewportStateCreateInfo text_pipeline_viewport_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .viewportCount = 1,
+        .pViewports = 0,
+        .scissorCount = 1,
+        .pScissors = 0,
+    };
+    
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
