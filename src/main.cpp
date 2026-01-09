@@ -1206,77 +1206,70 @@ int main(void) {
         Vec2 tex;
     };
 
-    PoneRectU32 *d_atlas_uv_rect = &atlas.glyph_rects[35];
-    f32 d_glyph_u_min = (f32)(d_atlas_uv_rect->x_min + d_pad) / (f32)atlas.width;
-    f32 d_glyph_u_max = (f32)(d_atlas_uv_rect->x_max - d_pad) / (f32)atlas.width;
-    f32 d_glyph_v_min = (f32)(d_atlas_uv_rect->y_min + d_pad) / (f32)atlas.height;
-    f32 d_glyphn_v_max = (f32)(d_atlas_uv_rect->y_max - d_pad) / (f32)atlas.height;
-
-    PoneGlyphVertexData d_glyph_vertex_data[4] = {
-        { .pos = { 0.0f, 0.0f }, .tex = { 0.0f, 0.0f } },
-        { .pos = { 0.0f, 1.0f }, .tex = { 0.0f, 1.0f } },
-        { .pos = { 1.0f, 0.0f }, .tex = { 1.0f, 0.0f } },
-        { .pos = { 1.0f, 1.0f }, .tex = { 1.0f, 1.0f } }
+    struct PoneGlyphInstanceData {
+        Vec2 offset;
+        Vec2 size;
+        Vec2 uv_min;
+        Vec2 uv_max;
     };
-    uint16_t d_glyph_quad_indices[6] = {
-        0, 1, 2,
-        2, 1, 3
-    };
-
-    PoneRectF32 *d_glyph_bbox = &atlas.glyph_bboxes[35];
-    f32 d_glyph_width = pone_rect_f32_width(d_glyph_bbox);
-    f32 d_glyph_height = pone_rect_f32_height(d_glyph_bbox);
-
-    u32 d_glyph_pos_x = 0;
-    u32 d_glyph_pos_y = 0;
-
+    
     f32 point_size = 64.0f; // 64 pt
     f32 ppi = 72.0f;
     f32 dpi = 96.0f;
     f32 scale = (point_size * dpi) / (ppi * font->units_per_em);
-
-    VkBufferCreateInfo d_glyph_vertex_buffer_create_info = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = 0,
-        .flags = 0,
-        .size = 4 * sizeof(PoneGlyphVertexData),
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = 0,
+    
+    PoneRectU32 *d_atlas_uv_rect = &atlas.glyph_rects[35];
+    PoneRectF32 *d_glyph_bbox = &atlas.glyph_bboxes[35];
+    
+    PoneGlyphInstanceData d_glyph_instance = {
+        .offset = { .x = 0.0f, .y = 0.0f },
+        .size = {
+            .x = pone_rect_f32_width(d_glyph_bbox) * scale,
+            .y = pone_rect_f32_height(d_glyph_bbox) * scale,
+        },
+        .uv_min = {
+            .x = (f32)(d_atlas_uv_rect->x_min + d_pad) / (f32)atlas.width,
+            .y = (f32)(d_atlas_uv_rect->y_min + d_pad) / (f32)atlas.height
+        },
+        .uv_max = {
+            .x = (f32)(d_atlas_uv_rect->x_max - d_pad) / (f32)atlas.width,
+            .y = (f32)(d_atlas_uv_rect->y_max - d_pad) / (f32)atlas.height
+        },
     };
-    VkBuffer d_glyph_vertex_buffer;
-    pone_vk_create_buffer(device, &d_glyph_vertex_buffer_create_info,
-                          &d_glyph_vertex_buffer);
-    VkMemoryRequirements2 d_glyph_vertex_buffer_memory_requirements;
-    pone_vk_get_buffer_memory_requirements_2(
-        device, d_glyph_vertex_buffer,
-        &d_glyph_vertex_buffer_memory_requirements);
-    VkMemoryAllocateInfo d_glyph_vertex_buffer_memory_allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = 0,
-        .allocationSize =
-            d_glyph_vertex_buffer_memory_requirements.memoryRequirements.size,
+
+    PoneGlyphVertexData d_glyph_quad_vertices[4] = {
+        { .pos = { -1.0f, -1.0f }, .tex = { 0.0f, 0.0f } }, // top-left
+        { .pos = {  1.0f, -1.0f }, .tex = { 0.0f, 1.0f } }, // top-right
+        { .pos = { -1.0f,  1.0f }, .tex = { 1.0f, 0.0f } }, // bottom-left
+        { .pos = {  1.0f,  1.0f }, .tex = { 1.0f, 1.0f } }  // bottom-right
     };
-    pone_assert(
-        pone_get_memory_type(
-            d_glyph_vertex_buffer_memory_requirements.memoryRequirements
-                .memoryTypeBits,
-            &physical_device->memory_properties,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            &d_glyph_vertex_buffer_memory_allocate_info.memoryTypeIndex) == 0);
-    VkDeviceMemory d_glyph_vertex_buffer_device_memory;
-    pone_vk_allocate_memory(device, &d_glyph_vertex_buffer_memory_allocate_info,
-                            &d_glyph_vertex_buffer_device_memory);
-    void *d_glyph_vertex_buffer_data;
-    pone_vk_map_memory(
-        device, d_glyph_vertex_buffer_device_memory, 0,
-        d_glyph_vertex_buffer_memory_requirements.memoryRequirements.size, 0,
-        &d_glyph_vertex_buffer_data);
-
-    pone_memcpy(d_glyph_vertex_buffer_data, (void *)d_glyph_vertex_data, 4 * sizeof(PoneGlyphVertexData));
-
+    u16 d_glyph_quad_indices[6] = {
+        0, 1, 2,
+        2, 1, 3
+    };
+    
+    VkBuffer d_glyph_quad_vertex_buffer =
+        pone_renderer_create_buffer(device, physical_device,
+                                    &frame_data.command_buffers[0], queue,
+                                    d_glyph_quad_vertices,
+                                    sizeof(d_glyph_quad_vertices),
+                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+    VkBuffer d_glyph_quad_index_buffer =
+        pone_renderer_create_buffer(device, physical_device,
+                                    &frame_data.command_buffers[0], queue,
+                                    d_glyph_quad_indices,
+                                    sizeof(d_glyph_quad_indices),
+                                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+    VkBuffer d_glyph_instance_buffer =
+        pone_renderer_create_buffer(device, physical_device,
+                                    &frame_data.command_buffers[0], queue,
+                                    &d_glyph_instance,
+                                    sizeof(PoneGlyphInstanceData),
+                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+                                                                     
     VkBuffer atlas_texture_staging_buffer;
     VkBufferCreateInfo atlas_texture_staging_buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
