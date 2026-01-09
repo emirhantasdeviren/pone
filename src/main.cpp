@@ -792,6 +792,151 @@ static void pone_renderer_vk_resize_swapchain(
     pone_arena_tmp_end(tmp_arena);
 }
 
+
+static VkBuffer pone_renderer_create_buffer(PoneVkDevice *device,
+                                            PoneVkPhysicalDevice *physical_device,
+                                            PoneVkCommandBuffer *command_buffer,
+                                            PoneVkQueue *queue,
+                                            void *data, usize size,
+                                            VkBufferUsageFlags usage) {
+    VkBufferCreateInfo buffer_create_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = 0,
+    };
+    VkBuffer staging_buffer;
+    pone_vk_create_buffer(device, &buffer_create_info, &staging_buffer);
+
+    buffer_create_info.usage = usage;
+    VkBuffer device_local_buffer;
+    pone_vk_create_buffer(device, &buffer_create_info, &device_local_buffer);
+    
+    VkMemoryRequirements2 staging_buffer_memory_requirements;
+    pone_vk_get_buffer_memory_requirements_2(device, staging_buffer, &staging_buffer_memory_requirements);
+    VkMemoryRequirements2 device_local_buffer_memory_requirements;
+    pone_vk_get_buffer_memory_requirements_2(device, device_local_buffer, &device_local_buffer_memory_requirements);
+    
+    VkMemoryAllocateInfo allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = 0,
+        .allocationSize = staging_buffer_memory_requirements.memoryRequirements.size,
+    };
+    pone_assert(pone_get_memory_type(staging_buffer_memory_requirements.memoryRequirements.memoryTypeBits,
+                                     &physical_device->memory_properties,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     &allocate_info.memoryTypeIndex) == 0);
+    VkDeviceMemory staging_buffer_device_memory;
+    pone_vk_allocate_memory(device, &allocate_info, &staging_buffer_device_memory);
+
+    allocate_info.allocationSize = device_local_buffer_memory_requirements.memoryRequirements.size;
+    pone_assert(pone_get_memory_type(device_local_buffer_memory_requirements.memoryRequirements.memoryTypeBits,
+                                     &physical_device->memory_properties,
+                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                     &allocate_info.memoryTypeIndex) == 0);
+    VkDeviceMemory device_local_buffer_device_memory;
+    pone_vk_allocate_memory(device, &allocate_info, &device_local_buffer_device_memory);
+    
+    VkBindBufferMemoryInfo bind_buffer_memory_infos[2] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+            .pNext = 0,
+            .buffer = staging_buffer,
+            .memory = staging_buffer_device_memory,
+            .memoryOffset = 0
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+            .pNext = 0,
+            .buffer = device_local_buffer,
+            .memory = device_local_buffer_device_memory,
+            .memoryOffset = 0
+        }
+    };
+    usize bind_buffer_memory_info_count =
+        sizeof(bind_buffer_memory_infos) / sizeof(bind_buffer_memory_infos[0]);
+    pone_vk_bind_buffer_memory_2(device, bind_buffer_memory_info_count, bind_buffer_memory_infos);
+    
+    void *staging_buffer_mapped_memory;
+    pone_vk_map_memory(device, staging_buffer_device_memory, 0,
+                       staging_buffer_memory_requirements.memoryRequirements.size, 0,
+                       &staging_buffer_mapped_memory);
+    pone_memcpy(staging_buffer_mapped_memory, data, size);
+
+    pone_vk_begin_command_buffer(command_buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VkBufferCopy2 buffer_copy_region = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+        .pNext = 0,
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = size,
+    };
+    VkCopyBufferInfo2 copy_buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+        .pNext = 0,
+        .srcBuffer = staging_buffer,
+        .dstBuffer = device_local_buffer,
+        .regionCount = 1,
+        .pRegions = &buffer_copy_region,
+    };
+    pone_vk_cmd_copy_buffer_2(command_buffer, &copy_buffer_info);
+    pone_vk_end_command_buffer(command_buffer);
+
+    VkCommandBufferSubmitInfo command_buffer_submit_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .pNext = 0,
+        .commandBuffer = command_buffer->handle,
+        .deviceMask = 0,
+    };
+    VkSubmitInfo2 submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .pNext = 0,
+        .flags = 0,
+        .waitSemaphoreInfoCount = 0,
+        .pWaitSemaphoreInfos = 0,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &command_buffer_submit_info,
+        .signalSemaphoreInfoCount = 0,
+        .pSignalSemaphoreInfos = 0,
+    };
+    pone_vk_queue_submit_2(queue, 1, &submit_info, 0);
+    pone_vk_queue_wait_idle(queue);
+
+    pone_vk_free_memory(device, staging_buffer_device_memory);
+    pone_vk_destroy_buffer(device, staging_buffer);
+
+    return device_local_buffer;
+}
+
+static VkShaderModule pone_renderer_create_shader(PoneVkDevice *device,
+                                                  PoneString *path, Arena *arena) {
+    PoneArenaTmp *scratch = pone_arena_tmp_begin(arena);
+    usize file_size;
+    pone_platform_read_file(path, &file_size, 0, scratch->arena);
+    pone_assert(file_size % 4 == 0);
+    void *shader_code = arena_alloc(scratch->arena, file_size);
+    pone_platform_read_file(path, &file_size, shader_code, scratch->arena);
+
+    VkShaderModuleCreateInfo shader_module_create_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .codeSize = file_size,
+        .pCode = (u32 *)shader_code,
+    };
+
+    VkShaderModule shader_module;
+    pone_vk_create_shader_module(device, &shader_module_create_info, &shader_module);
+    
+    return shader_module;
+}
+
 int main(void) {
     Arena global_arena;
     global_arena.base = (void *)(usize)TERABYTES((usize)2);
