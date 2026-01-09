@@ -1366,34 +1366,6 @@ int main(void) {
     };
     PoneVkImage *atlas_texture_image = pone_vk_create_image(
         device, &atlas_texture_image_create_info, &permanent_arena);
-
-    VkImageViewCreateInfo atlas_texture_image_view_create_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = 0,
-        .flags = 0,
-        .image = atlas_texture_image->handle,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_B8G8R8A8_UNORM,
-        .components =
-            (VkComponentMapping){
-                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-            },
-        .subresourceRange =
-            (VkImageSubresourceRange){
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-    VkImageView atlas_texture_image_view;
-    pone2_vk_create_image_view(device, &atlas_texture_image_view_create_info,
-                               &atlas_texture_image_view);
-
     VkMemoryRequirements2 atlas_texture_image_memory_requirements;
     pone_vk_get_image_memory_requirements_2(
         device, atlas_texture_image, &atlas_texture_image_memory_requirements);
@@ -1423,6 +1395,33 @@ int main(void) {
     };
     pone_vk_bind_image_memory_2(device, 1,
                                 &atlas_texture_image_bind_memory_info);
+
+    VkImageViewCreateInfo atlas_texture_image_view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .image = atlas_texture_image->handle,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .components =
+            (VkComponentMapping){
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange =
+            (VkImageSubresourceRange){
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VkImageView atlas_texture_image_view;
+    pone2_vk_create_image_view(device, &atlas_texture_image_view_create_info,
+                               &atlas_texture_image_view);
 
     VkImageSubresourceRange atlas_texture_image_subresource_range = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
