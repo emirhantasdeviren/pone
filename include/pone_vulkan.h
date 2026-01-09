@@ -156,6 +156,7 @@ struct PoneVkCommandBufferDispatch {
     PFN_vkCmdPipelineBarrier2 vk_cmd_pipeline_barrier_2;
     PFN_vkCmdClearColorImage vk_cmd_clear_color_image;
     PFN_vkCmdCopyBufferToImage2 vk_cmd_copy_buffer_to_image_2;
+    PFN_vkCmdCopyBuffer2 vk_cmd_copy_buffer_2;
 };
 
 struct PoneVkDeviceCreateInfo {
@@ -264,9 +265,11 @@ void pone_vk_cmd_clear_color_image(PoneVkCommandBuffer *command_buffer,
                                    VkImage image, VkImageLayout image_layout,
                                    VkClearColorValue *color, u32 range_count,
                                    VkImageSubresourceRange *ranges);
-void pone_vk_cmd_copy_buffer_to_image_2(
-    PoneVkCommandBuffer *command_buffer,
-    VkCopyBufferToImageInfo2 *copy_buffer_to_image_info);
+void pone_vk_cmd_copy_buffer_to_image_2(PoneVkCommandBuffer *command_buffer,
+                                        VkCopyBufferToImageInfo2 *copy_buffer_to_image_info);
+void pone_vk_cmd_copy_buffer_2(PoneVkCommandBuffer *command_buffer,
+                               VkCopyBufferInfo2 *copy_buffer_info);
+
 void pone_vk_end_command_buffer(PoneVkCommandBuffer *command_buffer);
 void pone_vk_cmd_pipeline_barrier_2(PoneVkCommandBuffer *command_buffer,
                                     VkDependencyInfo *dependency_info);

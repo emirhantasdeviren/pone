@@ -32,6 +32,9 @@ static void pone_vk_command_buffer_dispatch_init(
     pone_vk_get_device_proc_addr(device, vkCmdCopyBufferToImage2,
                                  dispatch->vk_cmd_copy_buffer_to_image_2,
                                  vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdCopyBuffer2,
+                                 dispatch->vk_cmd_copy_buffer_2,
+                                 vk_get_device_proc_addr);
 }
 
 static void
@@ -1021,6 +1024,12 @@ void pone_vk_cmd_copy_buffer_to_image_2(
     VkCopyBufferToImageInfo2 *copy_buffer_to_image_info) {
     (command_buffer->dispatch->vk_cmd_copy_buffer_to_image_2)(
         command_buffer->handle, copy_buffer_to_image_info);
+}
+
+void pone_vk_cmd_copy_buffer_2(PoneVkCommandBuffer *command_buffer,
+                               VkCopyBufferInfo2 *copy_buffer_info) {
+    (command_buffer->dispatch->vk_cmd_copy_buffer_2)(command_buffer->handle,
+                                                     copy_buffer_info);
 }
 
 void pone_vk_cmd_pipeline_barrier_2(PoneVkCommandBuffer *command_buffer,
