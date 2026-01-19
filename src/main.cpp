@@ -1747,6 +1747,36 @@ int main(void) {
         .alphaToCoverageEnable = VK_FALSE,
         .alphaToOneEnable = VK_FALSE,
     };
+    VkPipelineDepthStencilStateCreateInfo text_pipeline_depth_stencil_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .depthTestEnable = VK_FALSE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = VK_COMPARE_OP_NEVER,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = (VkStencilOpState){
+            .failOp = VK_STENCIL_OP_KEEP,
+            .passOp = VK_STENCIL_OP_KEEP,
+            .depthFailOp = VK_STENCIL_OP_KEEP,
+            .compareOp = VK_COMPARE_OP_NEVER,
+            .compareMask = 0,
+            .writeMask = 0,
+            .reference = 0,
+        },
+        .back = (VkStencilOpState){
+            .failOp = VK_STENCIL_OP_KEEP,
+            .passOp = VK_STENCIL_OP_KEEP,
+            .depthFailOp = VK_STENCIL_OP_KEEP,
+            .compareOp = VK_COMPARE_OP_NEVER,
+            .compareMask = 0,
+            .writeMask = 0,
+            .reference = 0,
+        },
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+    };
     
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
