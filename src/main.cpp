@@ -1736,6 +1736,17 @@ int main(void) {
         .depthBiasSlopeFactor = 0.0f,
         .lineWidth = 1.0f,
     };
+    VkPipelineMultisampleStateCreateInfo text_pipeline_multisample_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 1.0f,
+        .pSampleMask = 0,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
     
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
