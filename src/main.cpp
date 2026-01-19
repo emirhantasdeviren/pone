@@ -1777,6 +1777,35 @@ int main(void) {
         .minDepthBounds = 0.0f,
         .maxDepthBounds = 1.0f,
     };
+    VkPipelineColorBlendAttachmentState text_pipeline_color_blend_attachments[1] = {
+        {
+            .blendEnable = VK_TRUE,
+            .srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+            .colorBlendOp = VK_BLEND_OP_ADD,
+            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+            .alphaBlendOp = VK_BLEND_OP_ADD,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                              VK_COLOR_COMPONENT_G_BIT |
+                              VK_COLOR_COMPONENT_B_BIT |
+                              VK_COLOR_COMPONENT_A_BIT,
+        }
+    };
+    u32 text_pipeline_color_blend_attachment_count =
+        sizeof(text_pipeline_color_blend_attachments) /
+            sizeof(text_pipeline_color_blend_attachments[0]);
+
+    VkPipelineColorBlendStateCreateInfo text_pipeline_color_blend_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_CLEAR,
+        .attachmentCount = text_pipeline_color_blend_attachment_count,
+        .pAttachments = text_pipeline_color_blend_attachments,
+        .blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f },
+    };
     
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
