@@ -1928,26 +1928,77 @@ int main(void) {
         PoneVkSemaphore *submit_semaphore =
             submit_semaphores + swapchain_image_index;
 
-        pone_vk_begin_command_buffer(
-            command_buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        pone_vk_begin_command_buffer(command_buffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         transition_image(command_buffer,
                          swapchain->images[swapchain_image_index],
-                         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
-        VkClearColorValue clear_value = {{1.0f, 0.0f, 0.0f, 1.0f}};
-        VkImageSubresourceRange clear_range = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = VK_REMAINING_MIP_LEVELS,
-            .baseArrayLayer = 0,
-            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo rendering_color_attachment = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .pNext = 0,
+            .imageView = swapchain_image_views[swapchain_image_index].handle,
+            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
+            .resolveImageView = 0,
+            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue = {
+                .color = { .float32 = {1.0f, 1.0f, 1.0f, 1.0f} }
+            },
         };
-        pone_vk_cmd_clear_color_image(
-            command_buffer, swapchain->images[swapchain_image_index],
-            VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
-        transition_image(
-            command_buffer, swapchain->images[swapchain_image_index],
-            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VkRenderingInfo rendering_info = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .pNext = 0,
+            .flags = 0,
+            .renderArea = {
+                .offset = {0, 0},
+                .extent = swapchain->image_extent,
+            },
+            .layerCount = 1,
+            .viewMask = 0,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &rendering_color_attachment,
+            .pDepthAttachment = 0,
+            .pStencilAttachment = 0,
+        };
+        pone_vk_cmd_begin_rendering(command_buffer, &rendering_info);
+        pone_vk_cmd_bind_pipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, text_pipeline);
+        VkViewport viewport = {
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float)swapchain->image_extent.width,
+            .height = (float)swapchain->image_extent.height,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        };
+        pone_vk_cmd_set_viewport(command_buffer, 0, 1, &viewport);
+
+        VkRect2D scissor = {
+            .offset = {
+                .x = 0,
+                .y = 0,
+            },
+            .extent = swapchain->image_extent,
+        };
+        pone_vk_cmd_set_scissor(command_buffer, 0, 1, &scissor);
+        // transition_image(command_buffer,
+        //                  swapchain->images[swapchain_image_index],
+        //                  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        //
+        // VkClearColorValue clear_value = {{1.0f, 0.0f, 0.0f, 1.0f}};
+        // VkImageSubresourceRange clear_range = {
+        //     .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        //     .baseMipLevel = 0,
+        //     .levelCount = VK_REMAINING_MIP_LEVELS,
+        //     .baseArrayLayer = 0,
+        //     .layerCount = VK_REMAINING_ARRAY_LAYERS,
+        // };
+        // pone_vk_cmd_clear_color_image(
+        //     command_buffer, swapchain->images[swapchain_image_index],
+        //     VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+        // transition_image(
+        //     command_buffer, swapchain->images[swapchain_image_index],
+        //     VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         pone_vk_end_command_buffer(command_buffer);
 
         VkCommandBufferSubmitInfo command_buffer_submit_info = {
