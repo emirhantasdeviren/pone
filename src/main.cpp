@@ -1807,6 +1807,18 @@ int main(void) {
         .blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f },
     };
     
+    VkDynamicState text_pipeline_dynamic_states[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+    };
+    u32 text_pipeline_dynamic_state_count = pone_array_count(text_pipeline_dynamic_states);
+    VkPipelineDynamicStateCreateInfo text_pipeline_dynamic_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .dynamicStateCount = text_pipeline_dynamic_state_count,
+        .pDynamicStates = text_pipeline_dynamic_states,
+    };
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
