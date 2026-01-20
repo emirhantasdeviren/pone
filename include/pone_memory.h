@@ -8,6 +8,8 @@
 #define GIGABYTES(n) (MEGABYTES(n) << 10)
 #define TERABYTES(n) (GIGABYTES(n) << 10)
 
+#define pone_array_count(arr) sizeof((arr)) / sizeof((arr)[0])
+
 void *pone_memcpy(void *dst, void *src, usize len);
 void pone_memset(void *p, u8 c, usize n);
 
