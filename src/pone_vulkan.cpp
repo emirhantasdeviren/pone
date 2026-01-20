@@ -35,6 +35,18 @@ static void pone_vk_command_buffer_dispatch_init(
     pone_vk_get_device_proc_addr(device, vkCmdCopyBuffer2,
                                  dispatch->vk_cmd_copy_buffer_2,
                                  vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdBeginRendering,
+                                 dispatch->vk_cmd_begin_rendering,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdBindPipeline,
+                                 dispatch->vk_cmd_bind_pipeline,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdSetViewport,
+                                 dispatch->vk_cmd_set_viewport,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCmdSetScissor,
+                                 dispatch->vk_cmd_set_scissor,
+                                 vk_get_device_proc_addr);
 }
 
 static void
@@ -133,6 +145,12 @@ pone_vk_device_dispatch_init(PoneVkDeviceDispatch *dispatch, VkDevice device,
                                  vk_get_device_proc_addr);
     pone_vk_get_device_proc_addr(device, vkCreateShaderModule,
                                  dispatch->vk_create_shader_module,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCreatePipelineLayout,
+                                 dispatch->vk_create_pipeline_layout,
+                                 vk_get_device_proc_addr);
+    pone_vk_get_device_proc_addr(device, vkCreateGraphicsPipelines,
+                                 dispatch->vk_create_graphics_pipelines,
                                  vk_get_device_proc_addr);
 
     dispatch->vk_get_device_proc_addr = vk_get_device_proc_addr;

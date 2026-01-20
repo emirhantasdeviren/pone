@@ -147,6 +147,8 @@ struct PoneVkDeviceDispatch {
     PFN_vkCreateDescriptorSetLayout vk_create_descriptor_set_layout;
     PFN_vkAllocateDescriptorSets vk_allocate_descriptor_sets;
     PFN_vkCreateShaderModule vk_create_shader_module;
+    PFN_vkCreatePipelineLayout vk_create_pipeline_layout;
+    PFN_vkCreateGraphicsPipelines vk_create_graphics_pipelines;
 };
 
 struct PoneVkCommandBufferDispatch {
@@ -157,6 +159,10 @@ struct PoneVkCommandBufferDispatch {
     PFN_vkCmdClearColorImage vk_cmd_clear_color_image;
     PFN_vkCmdCopyBufferToImage2 vk_cmd_copy_buffer_to_image_2;
     PFN_vkCmdCopyBuffer2 vk_cmd_copy_buffer_2;
+    PFN_vkCmdBeginRendering vk_cmd_begin_rendering;
+    PFN_vkCmdBindPipeline vk_cmd_bind_pipeline;
+    PFN_vkCmdSetViewport vk_cmd_set_viewport;
+    PFN_vkCmdSetScissor vk_cmd_set_scissor;
 };
 
 struct PoneVkDeviceCreateInfo {
