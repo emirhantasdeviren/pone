@@ -1388,3 +1388,44 @@ void pone_vk_create_shader_module(PoneVkDevice *device,
                                                               device->allocation_callbacks,
                                                               shader_module));
 }
+
+void pone_vk_create_pipeline_layout(PoneVkDevice *device,
+                                    VkPipelineLayoutCreateInfo *create_info,
+                                    VkPipelineLayout *pipeline_layout) {
+    pone_vk_check((device->dispatch->vk_create_pipeline_layout)(device->handle,
+                                                                create_info,
+                                                                device->allocation_callbacks,
+                                                                pipeline_layout));
+}
+
+void pone_vk_create_graphics_pipelines(PoneVkDevice *device, VkPipelineCache pipeline_cache,
+                                       u32 create_info_count, VkGraphicsPipelineCreateInfo *create_infos,
+                                       VkPipeline *pipelines) {
+    pone_vk_check((device->dispatch->vk_create_graphics_pipelines)(device->handle,
+                                                                   pipeline_cache,
+                                                                   create_info_count, create_infos,
+                                                                   device->allocation_callbacks,
+                                                                   pipelines));
+}
+
+void pone_vk_cmd_begin_rendering(PoneVkCommandBuffer *command_buffer, VkRenderingInfo *rendering_info) {
+    (command_buffer->dispatch->vk_cmd_begin_rendering)(command_buffer->handle, rendering_info);
+}
+
+void pone_vk_cmd_bind_pipeline(PoneVkCommandBuffer *command_buffer,
+                               VkPipelineBindPoint pipeline_bind_point, VkPipeline pipeline) {
+    (command_buffer->dispatch->vk_cmd_bind_pipeline)(command_buffer->handle,
+                                                     pipeline_bind_point, pipeline);
+}
+
+void pone_vk_cmd_set_viewport(PoneVkCommandBuffer *command_buffer, u32 first_viewport, u32 viewport_count,
+                              VkViewport *viewports) {
+    (command_buffer->dispatch->vk_cmd_set_viewport)(command_buffer->handle,
+                                                    first_viewport, viewport_count, viewports);
+}
+
+void pone_vk_cmd_set_scissor(PoneVkCommandBuffer *command_buffer, u32 first_scissor, u32 scissor_count,
+                             VkRect2D *scissors) {
+    (command_buffer->dispatch->vk_cmd_set_scissor)(command_buffer->handle,
+                                                   first_scissor, scissor_count, scissors);
+}

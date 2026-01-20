@@ -395,5 +395,18 @@ void pone_vk_cmd_copy_buffer(PoneVkCommandBuffer *command_buffer,
 void pone_vk_create_shader_module(PoneVkDevice *device,
                                   VkShaderModuleCreateInfo *create_info,
                                   VkShaderModule *shader_module);
+void pone_vk_create_pipeline_layout(PoneVkDevice *device,
+                                    VkPipelineLayoutCreateInfo *create_info,
+                                    VkPipelineLayout *pipeline_layout);
+void pone_vk_create_graphics_pipelines(PoneVkDevice *device, VkPipelineCache pipeline_cache,
+                                       u32 create_info_count, VkGraphicsPipelineCreateInfo *create_infos,
+                                       VkPipeline *pipelines);
+void pone_vk_cmd_begin_rendering(PoneVkCommandBuffer *command_buffer, VkRenderingInfo *rendering_info);
+void pone_vk_cmd_bind_pipeline(PoneVkCommandBuffer *command_buffer,
+                               VkPipelineBindPoint pipeline_bind_point, VkPipeline pipeline);
+void pone_vk_cmd_set_viewport(PoneVkCommandBuffer *command_buffer, u32 first_viewport, u32 viewport_count,
+                              VkViewport *viewports);
+void pone_vk_cmd_set_scissor(PoneVkCommandBuffer *command_buffer, u32 first_scissor, u32 scissor_count,
+                             VkRect2D *scissors);
 
 #endif
