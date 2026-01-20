@@ -1633,6 +1633,11 @@ int main(void) {
         .pName = "main",
         .pSpecializationInfo = 0,
     };
+    VkPipelineShaderStageCreateInfo text_pipeline_shader_stages[2] = {
+        text_pipeline_vertex_shader_stage_create_info,
+        text_pipeline_frag_shader_stage_create_info,
+    };
+    u32 text_pipeline_shader_stage_count = pone_array_count(text_pipeline_shader_stages);
 
     VkVertexInputBindingDescription text_vertex_input_binding_descriptions[2] = {
         {
@@ -1721,7 +1726,7 @@ int main(void) {
         .scissorCount = 1,
         .pScissors = 0,
     };
-    VkPipelineRasterizationStateCreateInfo text_pipeline_rasterization_create_info ={
+    VkPipelineRasterizationStateCreateInfo text_pipeline_rasterization_state_create_info ={
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext = 0,
         .flags = 0,
@@ -1806,7 +1811,6 @@ int main(void) {
         .pAttachments = text_pipeline_color_blend_attachments,
         .blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f },
     };
-    
     VkDynamicState text_pipeline_dynamic_states[] = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR,
@@ -1841,6 +1845,30 @@ int main(void) {
         .depthAttachmentFormat = VK_FORMAT_UNDEFINED,
         .stencilAttachmentFormat = VK_FORMAT_UNDEFINED,
     };
+    VkGraphicsPipelineCreateInfo text_graphics_pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = (void *)&text_pipeline_rendering_create_info,
+        .flags = 0,
+        .stageCount = text_pipeline_shader_stage_count,
+        .pStages = text_pipeline_shader_stages,
+        .pVertexInputState = &text_pipeline_vertex_input_state_create_info,
+        .pInputAssemblyState = &text_pipeline_input_assembly_state_create_info,
+        .pTessellationState = &text_pipeline_tesselation_state_create_info,
+        .pViewportState = &text_pipeline_viewport_state_create_info,
+        .pRasterizationState = &text_pipeline_rasterization_state_create_info,
+        .pMultisampleState = &text_pipeline_multisample_state_create_info,
+        .pDepthStencilState = &text_pipeline_depth_stencil_state_create_info,
+        .pColorBlendState = &text_pipeline_color_blend_state_create_info,
+        .pDynamicState = &text_pipeline_dynamic_state_create_info,
+        .layout = text_pipeline_layout,
+        .renderPass = 0,
+        .subpass = 0,
+        .basePipelineHandle = 0,
+        .basePipelineIndex = 0,
+    };
+    VkPipeline text_pipeline;
+    pone_vk_create_graphics_pipelines(device, 0, 1, &text_graphics_pipeline_create_info, &text_pipeline);
+
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
