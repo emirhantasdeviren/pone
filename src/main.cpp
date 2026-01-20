@@ -1830,6 +1830,17 @@ int main(void) {
     };
     VkPipelineLayout text_pipeline_layout;
     pone_vk_create_pipeline_layout(device, &text_pipeline_layout_create_info, &text_pipeline_layout);
+
+    VkFormat *text_pipeline_color_attachment_formats = &swapchain->image_format;
+    VkPipelineRenderingCreateInfo text_pipeline_rendering_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .pNext  = 0,
+        .viewMask = 0,
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = text_pipeline_color_attachment_formats,
+        .depthAttachmentFormat = VK_FORMAT_UNDEFINED,
+        .stencilAttachmentFormat = VK_FORMAT_UNDEFINED,
+    };
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
