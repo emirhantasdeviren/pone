@@ -1819,6 +1819,17 @@ int main(void) {
         .dynamicStateCount = text_pipeline_dynamic_state_count,
         .pDynamicStates = text_pipeline_dynamic_states,
     };
+    VkPipelineLayoutCreateInfo text_pipeline_layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = 0,
+        .flags = 0,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptor_set_layout,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = 0,
+    };
+    VkPipelineLayout text_pipeline_layout;
+    pone_vk_create_pipeline_layout(device, &text_pipeline_layout_create_info, &text_pipeline_layout);
     usize frame_index = 0;
     // u64 t0 = pone_platform_get_time();
     while (wl_display_dispatch(wayland.display) != -1 && !wayland.closed) {
